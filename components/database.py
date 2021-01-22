@@ -61,7 +61,11 @@ class Database:
             fulldata = ""
             while len(fulldata) == 0:
                 with open(self.db) as f:
-                    fulldata = json.loads(f.read())
+                    try:
+                        fulldata = json.loads(f.read())
+                    except:
+                        sleep(0.5)
+                        fulldata = json.loads(f.read())
 
             data = fulldata[table]
             if type(query) == list: #e.g. ..query(["lastshow", "title"])
