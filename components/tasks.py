@@ -17,10 +17,12 @@ class Tasks:
         self.db = Database
         #self.schedule = AsyncIOScheduler() 
         self.schedule = BackgroundScheduler()
+        self.funclist = []
 
     def createtask(self, functarget, count, unit, tag="user task"):
         #task = getattr(schedule.every(count), unit).do(functarget).tag(tag)
         kwargs = {unit: count}
+        self.funclist.append(functarget)
         task = self.schedule.add_job(functarget, trigger(**kwargs))
         self.logger(f"added task: {task}")
         return task
@@ -51,6 +53,9 @@ class Tasks:
 
     def run(self):
         self.logger("running everything")
+        for func in self.funclist:
+            self.schedule.add_job(func)
+
         self.schedule.start()
 
     def getjobs(self):
@@ -69,6 +74,6 @@ class Tasks:
             name = jobdict[jobid]
             classname, funcname = name.split(".")
             return classname, funcname
-
+        return 404, 404
     def addlistener(self, function):
         self.schedule.add_listener(function, events.EVENT_JOB_EXECUTED)
