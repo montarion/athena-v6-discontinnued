@@ -30,7 +30,7 @@ class Core:
                 filelist.remove(item)
         tmplist = []
         for item in filelist:
-            if item.split(".")[1] == "py":
+            if item.split(".")[-1] == "py":
                 tmplist.append(item)
         filelist = tmplist
 
@@ -72,7 +72,6 @@ class Core:
         for item in self.moduledict:    
             #self.logger(item, "debug", "blue")
             self.classobjdict[item] = self.moduledict[item]["classobj"]
-            #self.logger(self.classobjdict, "debug", "blue")
             tier = self.moduledict[item]["attr"]["dependencies"]["tier"]
             # TODO: use tier to seperate dependency loading into tiers, to mitigate intermodule dependency errors
             #self.logger(self.moduledict[item])
@@ -81,7 +80,7 @@ class Core:
             #self.logger(f"DEPENDENCIES: {dependencies}")
             coremodules = ["Networking", "Database", "Watcher"]
             failedlist = [x for x in dependencies if x not in coremodules and x not in list(self.moduledict.keys())]
-            if len(failedlist) > 0:
+            if len(failedlist) > 0: # TODO: if failelist includes agents, pass through anyway
                 self.logger(f"couldn't meet dependencies for {item}", "info", "red")
                 removelist.append(item)
         for t in removelist:
@@ -97,8 +96,11 @@ class Core:
         retval = event.retval
         if retval:
             id = event.job_id
-            classname, funcname = self.tasker.getjobname(id)
-            self.watcher.publish(classname, retval)
+            try:
+                classname, funcname = self.tasker.getjobname(id)
+                self.watcher.publish(classname, retval)
+            except:
+                pass
 
     def standard(self):
         global Networking, Watcher, Database
@@ -125,7 +127,7 @@ class Core:
         self.classobjdict["Tasks"] = self.tasker
 
         #self.logger(self.classobjdict, "alert", "blue")
-        Watcher = watcher(self.classobjdict)
+        Watcher = watcher(self.db, self.classobjdict)
         self.watcher = Watcher
         # add watcher to membase
         self.classobjdict["Watcher"] = Watcher
@@ -157,7 +159,6 @@ class Core:
                 taskdict[module]["taskobj"] = taskobj
                 taskdict[module]["type"] = "threaded"
             else:
-                self.logger(name)
                 timing = self.moduledict[module]["attr"]["timing"]
                 finalclassobj = classobj(**dependencies)
                 taskobj = getattr(finalclassobj, "startrun") # running the actual function
@@ -167,7 +168,10 @@ class Core:
                 taskdict[module]["taskobj"] = taskobj
                 taskdict[module]["timing"] = timing
             #self.logger(f"Taskdict: {taskdict}", "debug", "blue")
+            # save initialized class object
+            self.classobjdict[name] = finalclassobj
 
+        self.db.membase["classes"] = self.classobjdict
         self.db.membase["ui-interfaces"] = uiinterfaces
         self.db.membase["taskdict"] = taskdict
         self.tasker.addlistener(self.ontaskcomplete)
