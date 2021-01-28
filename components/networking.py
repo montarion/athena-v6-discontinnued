@@ -1,4 +1,4 @@
-import websockets, asyncio, json, os, tracemalloc, shortuuid
+import websockets, asyncio, json, os, tracemalloc, shortuuid, ssl, traceback
 from components.logger import Logger
 class Networking:
 
@@ -22,6 +22,7 @@ class Networking:
                 break
             except Exception as e2:
                 # use re for error parsing
+                self.logger(str(e2), "alert", "red")
                 if "1001" in str(e2) or "1005" in str(e2):
                     #self.logger(f"Error: {str(e2)}", "alert", "red")
                     await websocket.close()
@@ -29,6 +30,7 @@ class Networking:
                     break
                 else:
                     self.logger(str(e2))
+                    traceback.print_exc()
                     await websocket.close()
                     break
 
@@ -96,152 +98,188 @@ class Networking:
         if not self.watcher_loaded:
             self.watcher = self.db.membase["classes"]["Watcher"]
             self.watcher_loaded = True
-        category = msg["category"]
-        type = msg["type"]
+
+        target = msg.get("target", "system")
+        self.logger(f"Got message for: {target}", "debug", "blue")
+
+        category = msg["category"].lower()
+        qtype = msg["type"].lower()
         data = msg.get("data", {})
         metadata = msg.get("metadata", {})
         # always check for guid
+        guidcheck = False
         if "copy" in metadata:
             self.logger(metadata["copy"])
+            if "guid" in metadata["copy"]:
+                guidcheck = True
+                copyguid = metadata["copy"]["guid"]
             newmeta = metadata["copy"]
             metadata = newmeta
 
-        if category == "admin":
-            if type == "signin":
-                name = data["name"]
-                self.logger("received signin")
-                self.logger(data.keys())
-                if "id" in data.keys():
-                    id = data["id"]
-                    self.logger(f"already has id: {id}")
-                else:
-                    #create new id
+        # TODO: remove id from data or metadata. 
+        if target != "system":
+            #TODO: send it to the appropriate manager/agent, maybe check with guid
+            result = self.watcher.getclass(target)
+            if result["status"] == 200:
+                classtosend = result["result"]
+                result = classtosend.query(1, msg)
+                if result: # send it back
+                    # check for guid inclusion
+                    if guidcheck:
+                        if type(result) != dict:
+                            result = json.loads(result)
+                        if not "metadata" in result:
+                            result["metadata"] = {}
+                        if not "guid" in result["metadata"]:
+                            result["metadata"]["guid"] = copyguid
+                        result = json.dumps(result)
+                    if type(result) != str:
+                        result = json.dumps(result)
+                    await websocket.send(result)
+        else:
+            if category == "admin":
+                if qtype == "signin":
+                    name = data["name"]
+                    self.logger("received signin")
+                    self.logger(data.keys())
+                    if "id" in data.keys():
+                        id = data["id"]
+                        self.logger(f"already has id: {id}")
+                    else:
+                        #create new id
+                        id = self.createid()
+                    self.db.membase[id] = {"socket": websocket}
+                    self.db.write(id, {"id":id, "name": name}, "users")
+                    returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "data":{"id":id}})
+                    await self.send(returnmsg, [id])
+
+            if category == "test":
+                self.logger("got test message", "debug", "yellow")
+                if type == "web":
+                    self.logger("got web message")
+                    self.logger(msg)
+
                     id = self.createid()
-                self.db.membase[id] = {"socket": websocket}
-                self.db.write(id, {"id":id, "name": name}, "users")
-                returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "data":{"id":id}})
-                await self.send(returnmsg, [id])
+                    self.logger(id)
+                    name = "website"
+                    self.db.membase[id] = {"socket": websocket}
+                    self.db.write(id, {"id":id, "name": name}, "users")
+                    data = {"id": id}
+                    returnmsg = self.messagebuilder("admin", "signinresponse", data, metadata)
+                    await websocket.send(returnmsg)
 
-        if category == "test":
-            self.logger("got test message", "debug", "yellow")
-            if type == "web":
-                self.logger("got web message")
-                self.logger(msg)
+                    # weather
+                    curdict = self.db.query("currentweather", "weather")
 
-                id = self.createid()
-                self.logger(id)
-                name = "website"
-                self.db.membase[id] = {"socket": websocket}
-                self.db.write(id, {"id":id, "name": name}, "users")
-                data = {"id": id}
-                returnmsg = self.messagebuilder("admin", "signinresponse", data, metadata)
-                await websocket.send(returnmsg)
+                    if curdict["status"][:2] == "20":
+                        data = curdict["resource"]
 
-                # weather
-                curdict = self.db.query("currentweather", "weather")
+                        msg = self.messagebuilder("weather", "current", data, metadata)
+                        await websocket.send(msg)
 
-                if curdict["status"][:2] == "20":
-                    data = curdict["resource"]
+                    # anime
+                    curdict = self.db.query("lastshow", "anime")
+                    if curdict["status"][:2] == "20":
+                        data = curdict["resource"]
+                        msg = self.messagebuilder("anime", "lastshow", data, metadata)
+                        await websocket.send(msg)
 
-                    msg = self.messagebuilder("weather", "current", data, metadata)
-                    await websocket.send(msg)
+                    # system monitor
+                    curdict = self.db.query("info", "monitor")
+                    if curdict["status"][:2] == "20":
+                        data = curdict["resource"]
 
-                #await asyncio.sleep(6)
-                # anime
-                curdict = self.db.query("lastshow", "anime")
-                if curdict["status"][:2] == "20":
-                    data = curdict["resource"]
+                        msg = self.messagebuilder("monitor", "info", data, metadata) # ! the category("monitor" here, MUST be the name of the folder in data/modules.)
+                        await websocket.send(msg)
 
-                    msg = self.messagebuilder("anime", "lastshow", data, metadata)
-                    await websocket.send(msg)
+                if type == "question":
+                    questionlist = [{"type": "text", "question": "how are you doing?"}]
+                    self.db.getfromuser(questionlist)
 
-                # system monitor
-                curdict = self.db.query("info", "monitor")
-                if curdict["status"][:2] == "20":
-                    data = curdict["resource"]
-
-                    msg = self.messagebuilder("monitor", "info", data, metadata) # ! the category("monitor" here, MUST be the name of the folder in data/modules.)
-                    await websocket.send(msg)
-
-            if type == "question":
-                questionlist = [{"type": "text", "question": "how are you doing?"}]
-                self.db.getfromuser(questionlist)
-
-        if category == "weather":
-            if type == "current":
-                self.logger("got request for weather")
-                # run func
-                self.logger("trying")
-                #self.watcher.execute("Weather", "getcurrentweather")
-                self.logger("done")
-                curdict = self.db.query("currentweather", "weather")
+            if category == "weather":
+                if type == "current":
+                    self.logger("got request for weather")
+                    # run func
+                    self.logger("trying")
+                    #self.watcher.execute("Weather", "getcurrentweather")
+                    self.logger("done")
+                    curdict = self.db.query("currentweather", "weather")
                 
-                if curdict["status"][:2] == "20":
-                    data = curdict["resource"]
-                    msg = self.messagebuilder(category, type, data, metadata)
-                    await websocket.send(msg)
-                else:
-                    returnmsg = {"status":404, "message":"couldn't find current weather"}
-                    await websocket.send(json.dumps(returnmsg))
+                    if curdict["status"][:2] == "20":
+                        data = curdict["resource"]
+                        msg = self.messagebuilder(category, type, data, metadata)
+                        await websocket.send(msg)
+                    else:
+                        returnmsg = {"status":404, "message":"couldn't find current weather"}
+                        await websocket.send(json.dumps(returnmsg))
     
-        if category == "anime":
-            if type == "lastshow":
-                # anime
-                curdict = self.db.query("lastshow", "anime")
-                if curdict["status"][:2] == "20":
-                    data = curdict["resource"]
+            if category == "anime":
+                if type == "lastshow":
+                    # anime
+                    curdict = self.db.query("lastshow", "anime")
+                    if curdict["status"][:2] == "20":
+                        data = curdict["resource"]
 
-                    msg = self.messagebuilder("anime", "lastshow", data, metadata)
+                        msg = self.messagebuilder("anime", "lastshow", data, metadata)
+                        await websocket.send(msg)
+                if type == "eplist":
+                    self.logger("GOT EPLIST REQUEST")
+                    title = data["title"]
+                    testlist = [{"size": 1280, "compressed":False, "episode":18},{"size": 350, "compressed":True, "episode":1},{"size": 1350, "compressed":False, "episode":11}, {"size": 1280, "compressed":False, "episode":16},{"size": 350, "compressed":True, "episode":3},{"size": 1350, "compressed":False, "episode":15}, {"size": 1280, "compressed":False, "episode":14},{"size": 350, "compressed":True, "episode":4},{"size": 1350, "compressed":False, "episode":22}]
+                    msg = self.messagebuilder(category, type, testlist, metadata)
                     await websocket.send(msg)
-            if type == "eplist":
-                self.logger("GOT EPLIST REQUEST")
-                title = data["title"]
-                testlist = [{"size": 1280, "compressed":False, "episode":18},{"size": 350, "compressed":True, "episode":1},{"size": 1350, "compressed":False, "episode":11}, {"size": 1280, "compressed":False, "episode":16},{"size": 350, "compressed":True, "episode":3},{"size": 1350, "compressed":False, "episode":15}, {"size": 1280, "compressed":False, "episode":14},{"size": 350, "compressed":True, "episode":4},{"size": 1350, "compressed":False, "episode":22}]
-                msg = self.messagebuilder(category, type, testlist, metadata)
-                await websocket.send(msg)
 
-        if category == "web":
-            if type == "template":
-                """ get template data for presets """
-                self.logger("template request")
-                self.logger(msg)
-                data = msg["data"]
-                preset = data["preset"] # e.g. weather
-                files = data["filenames"] # e.g. weather.html
-                elementsize = data["size"] # either small or big(for expanded card)
-                metadata = msg["metadata"]
-                if "copy" in metadata:
-                    self.logger(metadata["copy"])
-                    newmeta = metadata["copy"]
-                    metadata = newmeta
+            if category == "monitor":
+                if type == "basic":
+                    curdict = self.db.query("info", "monitor")
+                    if curdict["status"][:2] == "20":
+                        data = curdict["resource"]
 
-                try:
-                    tmppath = os.path.abspath(f"data/modules/{preset}/templates/{elementsize}")
-                    finres = {}
-                    for filename in files:
-                        extension = filename.split(".")[-1]
-                        self.logger(extension, "info", "blue")
-                        if extension in ["js", "html", "json"]:
-                            finpath = os.path.join(tmppath, filename)
-                            with open(finpath) as f:
-                                result = f.read()
-                            if extension == "json":
-                                result = json.loads(result)
-                            finres[filename] = result
-                    data = finres
-                    returnmsg = self.messagebuilder(category, type, data, metadata)
-                    self.logger(f"Returning: {returnmsg}")
-                    await websocket.send(returnmsg)
-                except Exception as e1:
-                    self.logger(f"Error: {str(e1)}")
-                    data = {"status": 404}
-                    returnmsg = self.messagebuilder(category, type, data, metadata)
-                    self.logger(f"Returning: {returnmsg}")
-                    await websocket.send(returnmsg)
+                        msg = self.messagebuilder("monitor", "info", data, metadata)
+                        await websocket.send(msg)
 
-        # maybe only do this bit if there's a flag set in membase, for security
-        self.watcher.publish(self, msg)
-        await asyncio.sleep(0.1)
+            if category == "web":
+                if type == "template":
+                    """ get template data for presets """
+                    self.logger("template request")
+                    self.logger(msg)
+                    data = msg["data"]
+                    preset = data["preset"] # e.g. weather
+                    files = data["filenames"] # e.g. weather.html
+                    elementsize = data["size"] # either small or big(for expanded card)
+                    metadata = msg["metadata"]
+                    if "copy" in metadata:
+                        self.logger(metadata["copy"])
+                        newmeta = metadata["copy"]
+                        metadata = newmeta
+
+                    try:
+                        tmppath = os.path.abspath(f"data/modules/{preset}/templates/{elementsize}")
+                        finres = {}
+                        for filename in files:
+                            extension = filename.split(".")[-1]
+                            self.logger(extension, "info", "blue")
+                            if extension in ["js", "html", "json"]:
+                                finpath = os.path.join(tmppath, filename)
+                                with open(finpath) as f:
+                                    result = f.read()
+                                if extension == "json":
+                                    result = json.loads(result)
+                                finres[filename] = result
+                        data = finres
+                        returnmsg = self.messagebuilder(category, type, data, metadata)
+                        self.logger(f"Returning: {returnmsg}")
+                        await websocket.send(returnmsg)
+                    except Exception as e1:
+                        self.logger(f"Error: {str(e1)}")
+                        data = {"status": 404}
+                        returnmsg = self.messagebuilder(category, type, data, metadata)
+                        self.logger(f"Returning: {returnmsg}")
+                        await websocket.send(returnmsg)
+
+            # maybe only do this bit if there's a flag set in membase, for security
+            self.watcher.publish(self, msg)
+            await asyncio.sleep(0.1)
 
     def messagebuilder(self, category, msgtype, data={}, metadata={}, target=None):
         msg = json.dumps({"category":category, "type":msgtype, "data":data, "metadata":metadata})
@@ -273,7 +311,19 @@ class Networking:
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         self.db.membase["eventloop"] = self.loop
-        serveserver = websockets.server.serve(self.runserver, "0.0.0.0", 8000)
+
+        # check if tls/ssl is available
+        ssl_enabled = self.db.query(["ssl_enabled"], "system")["resource"]
+        if ssl_enabled:
+            certchain_location = self.db.query(["certchain"], "system")["resource"]
+            keyfile_location = self.db.query(["keyfile"], "system")["resource"]
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ssl_context.load_cert_chain(certchain_location, keyfile= keyfile_location)
+            self.logger("Using SSL")
+        else:
+            ssl_context = None
+            self.logger("Not using ssl. Connection is insecure")
+        serveserver = websockets.server.serve(self.runserver, "0.0.0.0", 8000, ssl=ssl_context)
         
         self.loop.create_task(self.run_straglers())
         #self.loop.run_until_complete(serveserver)
