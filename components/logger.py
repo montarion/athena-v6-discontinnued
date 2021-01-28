@@ -23,6 +23,8 @@ class Logger:
             msg = "{} Received message: {}".format(tag, msg)
         elif type == 'info':
             msg = "{} INFORMATION: {}".format(tag, msg)
+        else:
+            msg = "{} INFORMATION: {}".format(tag, msg)
 
         with open(self.logfile, "a") as f:
             f.write(msg + "\n")
@@ -37,6 +39,7 @@ class Logger:
             print(self.YELLOW + msg + self.ENDC)
         elif colour == "red":
             print(self.RED + msg + self.ENDC)
-
+        else:
+            print(msg)
 
 
