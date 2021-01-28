@@ -10,7 +10,7 @@ class Weather:
         self.db = Database
         self.watcher = Watcher
         self.logger = Logger("Weather").logger
-        self.iconbase = "http://openweathermap.org/img/wn/"
+        self.iconbase = "https://openweathermap.org/img/wn/"
         # do not add init stuff
 
 
@@ -126,6 +126,28 @@ class Weather:
             "iconurl": self.iconbase + data["weather"][0]["icon"] + "@2x.png"
         }
         return tdict
+
+    def query(self, connectionID, query):
+        """connectionID is the id of who is asking(starts at 0, database is 999)
+           the query is a dict containing the following keys:
+            "category", "type", "data", "metadata"
+        """
+        category = query["category"]
+        qtype = query["type"]
+        data = query.get("data", None)
+        metadata = query.get("metadata", None)
+        response = {}
+        if category == "request":
+            if qtype == "current":
+                curdict = self.db.query("currentweather", "weather")
+                if curdict["status"][:2] == "20":
+                    data = curdict["resource"]
+                    response = self.watcher.getclass("Networking")["result"].messagebuilder("weather", "current", data, metadata)
+
+        # TODO: Read out the query
+        # TODO: Use it to write out the response
+        return response
+
     def startrun(self):
         """this is what gets called by main"""
         # init stuff..

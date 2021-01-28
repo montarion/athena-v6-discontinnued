@@ -43,7 +43,7 @@ class Monitor:
         res = {}
         res["uptime"] = subprocess.check_output(["uptime", "-p"]).decode()[3:-1] #timedelta(seconds=time()-psutil.boot_time())
         # temp
-        res["temperature"] = psutil.sensors_temperatures()
+        #res["temperature"] = psutil.sensors_temperatures()
         return res
 
     def compose(self):
@@ -55,10 +55,30 @@ class Monitor:
         res["misc"] = self.getmisc()
         self.db.write("info", res, "monitor")
 
+    def query(self, connectionID, query):
+        """connectionID is the id of who is asking(starts at 0, database is 999)
+           the query is a dict containing the following keys:
+            "category", "type", "data", "metadata"
+        """
+        category = query["category"]
+        qtype = query["type"]
+        data = query.get("data", None)
+        metadata = query.get("metadata", None)
+        response = {}
+        curdict = self.db.query("info", "monitor")
+        if curdict["status"][:2] == "20":
+            data = curdict["resource"]
+            response = self.db.messagebuilder("monitor", "info", data, metadata)
+
+        # TODO: Read out the query
+        # TODO: Use it to write out the response
+        return response
+
+
     def startrun(self):
         """get system stats"""
         # init stuff..
         self.logger = Logger("Monitor").logger
         self.datapath = f"data/modules/{self.__class__.__name__.lower()}"
         self.compose()
-        
+
