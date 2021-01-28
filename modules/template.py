@@ -7,8 +7,23 @@ class Template:
         self.timing = {"unit": "minutes", "count":10}
         # do not add init stuff
 
-        def dostuff(self):
-            pass
+    def dostuff(self):
+        pass
+
+    def query(self, connectionID, query):
+        """connectionID is the id of who is asking(starts at 0, database is 999)
+           the query is a dict containing the following keys:
+            "category", "type", "data", "metadata"
+        """
+        category = query["category"]
+        qtype = query["type"]
+        qdata = query.get("data", None)
+        metadata = query.get("metadata", None)
+        response = {}
+        # TODO: Read out the query
+        # TODO: Use it to write out the response
+        return response
+
 
     def startrun(self):
         """Description of what this module does"""
