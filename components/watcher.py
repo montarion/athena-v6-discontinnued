@@ -3,10 +3,12 @@ from components.logger import Logger
 from time import sleep
 
 class Watcher:
-    def __init__(self, classobjdict):
+    def __init__(self, Database, classobjdict):
         self.logger = Logger("Watcher").logger
         self.r = redis.Redis(host='localhost', port=6379, db=0)
         self.p = self.r.pubsub(ignore_subscribe_messages=True)
+        self.dbobj = Database
+        self.logger(self.dbobj)
         self.classobjdict = classobjdict
 
         self.listenstop = False
@@ -73,11 +75,12 @@ class Watcher:
                 break
 
     def getclass(self, classname):
+        self.classobjdict = self.dbobj.membase["classes"]
         if classname in self.classobjdict:
-            return self.classobjdict[classname]
+            return {"result": self.classobjdict[classname], "status": 200}
         else:
             self.logger("class not found")
-            return self
+            return {"result": "Class not found", "status": 404} 
 
 
     def execute(self, classname, funcname=None, args={}):
@@ -93,7 +96,6 @@ class Watcher:
         self.logger(classobj)
         if funcname:
             # do things with class object
-            self.logger(args, "debug", "yellow")
             threading.Thread(target=getattr(classobj(database), funcname), kwargs=args).start()
         
 
