@@ -1,16 +1,16 @@
 import os, requests, json, feedparser, re, time
 from time import sleep
-from components.database import Database
 from components.logger import Logger
 
 class Anime:
-    def __init__(self, Networking=None, Watcher=None):
-        self.dependencies = {"tier": "user", "dependencies":["Networking", "Watcher"]}
+    def __init__(self, Networking=None, Watcher=None, Database=None):
+        self.dependencies = {"tier": "user", "dependencies":["Networking", "Watcher", "Database"]}
         self.capabilities = ["timed"]
         self.timing = {"unit": "minutes", "count":2}
         self.networking = Networking
         # geen basics
         self.watcher = Watcher
+        self.dbobj = Database
         self.datapath = f"data/modules/{self.__class__.__name__.lower()}"
         self.retval = None
         # other init stuff happens in startrun
@@ -24,7 +24,6 @@ class Anime:
         while x < number and x <= len(entries):
             try:
                 entry = entries[x]
-                self.logger(entry["title"])
             except IndexError:
                 self.logger(f"Tried index {x} and failed.") 
                 x+=1
@@ -74,14 +73,14 @@ class Anime:
                     self.retval = data
                     metadata = {"status": 200}
                     #res = self.networking.messagebuilder(category, type, data, metadata, "all")
-                    Database().write("lastshow", sessiondict, "anime")
+                    self.dbobj.write("lastshow", sessiondict, "anime")
 
 
                 x += 1
             else:
                 number += 1
                 x += 1
-        Database().write("maindict", self.maindict, "anime")
+        self.dbobj.write("maindict", self.maindict, "anime")
         if self.retval:
             tmp = self.retval
             self.retval = None
@@ -97,7 +96,7 @@ class Anime:
             return False
 
     def cleantitle(self, title):
-        pattern = f"\[{self.publishchoice}\] (.*) - ([0-9]*) .*\(1080p\).*.mkv"
+        pattern = "\[.*\] (.*) - ([0-9]*) .*\[|\(1080p\]|\).*.mkv"
         try:
             res = re.search(pattern, title)
             show = res.group(1)
@@ -173,9 +172,51 @@ class Anime:
 
         return chosenlist
 
+    def query(self, connectionID, query):
+        """connectionID is the id of who is asking(starts at 0, database is 999)
+           the query is a dict containing the following keys:
+            "category", "type", "data", "metadata"
+        """
+        category = query["category"]
+        qtype = query["type"]
+        qdata = query.get("data", None)
+        metadata = query.get("metadata", None)
+        response = {}
+        if category == "request":
+            if qtype == "lastshow":
+                lastshow = self.dbobj.query(["lastshow"], "anime")["resource"]
+                response = {"category":"anime", "type":"lastshow", "data":lastshow}
+
+            if qtype == "eplist":
+                title = qdata["title"]
+                # get base from db
+                showfolder = f"/mnt/raspidisk/files/anime/{title}"
+                # if folder exists:
+                prelist = sorted(os.listdir(showfolder))
+                findict = {}
+
+                _, show, episode = self.cleantitle(prelist[0])
+                for file in prelist:
+                    _, _, episode = self.cleantitle(file)
+                    size = os.stat(os.path.join(showfolder, file)).st_size/1000000 # was bytes, now MB
+                    unit = "MB"
+                    if size > 1000:
+                        unit = "GB"
+                        size = size/1000
+                    size = f"{size:,.2f}"
+                    compressed = False
+                    if "compressed" in file:
+                        compressed = True
+                    findict[episode] = {"size": size, "unit":unit, "compressed": compressed}
+                response = {"category": "anime", "type":"eplist", "data":findict}
+        # TODO: Read out the query
+        # TODO: Use it to write out the response
+        return response
+
     def startrun(self, number = 1):
         self.logger = Logger("Anime").logger
-        self.dbobj = Database()
+        # add actual class to membase
+        #self.dbobj.membase["classes"][_
         self.publishchoice = "SubsPlease"
         prelist = self.dbobj.query("watchlist", "anime")
         if prelist["status"][:2] == "20":
@@ -183,13 +224,12 @@ class Anime:
         else:
             self.watchlist = self.findshows()
 
-        #self.publishchoice = "HorribleSubs"
         predict = self.dbobj.query("maindict", "anime")
         if predict["status"][:2] == "20":
             self.maindict = predict["resource"]
         else:
             self.maindict = {}
 
-        result = self.getshows(1)
+        result = self.getshows(number)
         if result:
             return result
