@@ -1,6 +1,7 @@
 from ast import literal_eval as eval
 from components.logger import Logger
-import json, traceback, inspect, shortuuid
+import json, traceback, inspect, shortuuid, random
+from filelock import FileLock
 from time import sleep
 class Database:
     membase = {}
@@ -11,6 +12,13 @@ class Database:
         self.nw = Networking
         self.membase = Database.membase
         self.userresponse = {}
+        self.dblock = FileLock(self.db+".lock")
+
+    def getdbfile(self):
+        with self.dblock:
+            with open(self.db) as f:
+                fulldata = json.loads(f.read())
+        return fulldata
 
     def write(self, key, value, table=None):
         """Usage: Database().write("foo", {"foo":"bar"}, "test")"""
@@ -25,11 +33,21 @@ class Database:
             self.table = table
 
         #t = self.gettable(table)
+        fulldata = self.getdbfile()
+        """
         with open(self.db) as f:
-             # get data
-             fulldata = json.loads(f.read())
-
-
+            # get data
+            try:
+                fulldata = json.loads(f.read())
+            except:
+                for i in range(0,10):
+                    self.logger(i, "debug", "red")
+                    sleep(random.randint(70,100)/100)
+                    try:
+                        fulldata = json.loads(f.read())
+                    except:
+                        pass
+        """
         tables = fulldata.keys()
 
         if table not in tables:
@@ -56,17 +74,25 @@ class Database:
         
         if table:
             self.table = table
+        fulldata = self.getdbfile()
 
         try:
+            """
             fulldata = ""
             while len(fulldata) == 0:
                 with open(self.db) as f:
+                    
                     try:
                         fulldata = json.loads(f.read())
                     except:
-                        sleep(0.5)
-                        fulldata = json.loads(f.read())
-
+                        for i in range(0,10):
+                            self.logger(i, "debug", "red")
+                            sleep(random.randint(70,100)/100)
+                            try:
+                                fulldata = json.loads(f.read())
+                            except:
+                                pass
+            """
             data = fulldata[table]
             if type(query) == list: #e.g. ..query(["lastshow", "title"])
                 for q in query:
@@ -115,11 +141,14 @@ class Database:
         if table:
             self.table = self.db.table(table)
 
+        fulldata = self.getdbfile()
+        """
         fulldata = ""
         while len(fulldata) == 0:
             with open(self.db) as f:
                 # get data
                 fulldata = json.loads(f.read())
+        """
 
         tables = fulldata.keys()
         if table not in tables:
@@ -141,11 +170,23 @@ class Database:
     def gettable(self, table):
         """Usage: Database().gettable("table")"""
 
+        fulldata = self.getdbfile()
+        """
         fulldata = ""
         while len(fulldata) == 0:
             with open(self.db) as f:
                 # get data
-                fulldata = json.loads(f.read())
+                try:
+                    fulldata = json.loads(f.read())
+                except:
+                    for i in range(0,4):
+                        self.logger(i, "debug", "red")
+                        sleep(random.randint(30,70)/100)
+                        try:
+                            fulldata = json.loads(f.read())
+                        except:
+                            pass
+        """
         try:
             table = fulldata[table]
             res = {"status": 200, "resource": table}
@@ -248,3 +289,7 @@ class Database:
             if "." in i:
                 name.remove(i)
         return name
+
+    def messagebuilder(self, category, msgtype, data={}, metadata={}):
+        msg = json.dumps({"category":category, "type":msgtype, "data":data, "metadata":metadata})
+        return msg
