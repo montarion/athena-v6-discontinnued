@@ -14,13 +14,30 @@ class Database:
         self.userresponse = {}
         self.dblock = FileLock(self.db+".lock")
 
-    def getdbfile(self):
+    def getdbfile(self, editableonly = False, rohidden = True):
         with self.dblock:
             with open(self.db) as f:
-                fulldata = json.loads(f.read())
-        return fulldata
+                tables = json.loads(f.read())
+        
+        tabledict = {}
+        for table in tables:
+            rolist = tables[table].get("readonly", [])
+            tabledict[table] = {}
+            for key in tables[table]:
+                if rohidden:
+                    if key == "readonly":
+                        continue
+                if editableonly:
+                    if key in rolist:
+                        continue
+                value = tables[table][key]
+                tabledict[table][key] = value
+            if len(tabledict[table]) == 0:
+                del tabledict[table]
+        
+        return tabledict
 
-    def write(self, key, value, table=None):
+    def write(self, key, value, table=None, readonly = False):
         """Usage: Database().write("foo", {"foo":"bar"}, "test")"""
         #self.logger("Writing..")
         # fix datatypes
@@ -33,33 +50,31 @@ class Database:
             self.table = table
 
         #t = self.gettable(table)
-        fulldata = self.getdbfile()
-        """
-        with open(self.db) as f:
-            # get data
-            try:
-                fulldata = json.loads(f.read())
-            except:
-                for i in range(0,10):
-                    self.logger(i, "debug", "red")
-                    sleep(random.randint(70,100)/100)
-                    try:
-                        fulldata = json.loads(f.read())
-                    except:
-                        pass
-        """
+        fulldata = self.getdbfile(rohidden=False)
         tables = fulldata.keys()
 
         if table not in tables:
             fulldata[table] = {}
 
+
+        # save readonly data if it exists
+        rodata = []
+        if "readonly" in fulldata[table]:
+            rodata = fulldata[table]["readonly"]
+
         data = json.loads(json.dumps(fulldata[table]))
 
-        data[key] = value
+        data["readonly"] = rodata
+        self.logger(f"old data: {fulldata[table]}", "debug", "blue")
 
-            # save in proper form
+        data[key] = value # add actual data
+        if readonly:
+            if "readonly" not in data:
+                data["readonly"] = []
+            data["readonly"].append(key)
+        # save in proper form
         fulldata[table] = data
-            #self.logger(f"new data: {data}", "debug", "blue")
+        self.logger(f"new data: {data}", "debug", "blue")
 
             # write fulldata to dict
         with open(self.db, "w") as f:
@@ -198,6 +213,17 @@ class Database:
             except:
                 res = {"status": 404, "resource": f"table: \"{table}\" not found"}
         #self.logger(res, "debug", "yellow")
+        return res
+
+    def gettables(self):
+        fulldata = self.getdbfile()
+        tables = list(fulldata.keys())
+        res = {"status": 200, "resource": tables}
+        return res
+
+    def geteditable(self):
+        tables = self.getdbfile(True)
+        res = {"status": 200, "resource": tables}
         return res
 
     def getfromuser(self, questionlist):
