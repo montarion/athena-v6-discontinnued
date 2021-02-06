@@ -37,7 +37,7 @@ class Anime:
                 continue
             link = entry["link"]
             if self.checkshow(show):
-                self.logger(f"current: {show}")
+                self.logger(f"current: {show} episode {episode}")
                 sessiondict["title"] = show
                 sessiondict["episode"] = episode
                 if show not in self.maindict:
@@ -89,7 +89,11 @@ class Anime:
 
     def checkshow(self, show):
         # lets you check for substrings of shows as well. e.g. "One" will match "One Piece".
-        res = [s for s in self.watchlist if show in s]
+        self.logger(show)
+        try:
+            res = [s for s in self.watchlist if show in s]
+        except:
+            res = ""
         if len(res) > 0:
             return True
         else:
@@ -212,6 +216,61 @@ class Anime:
         # TODO: Read out the query
         # TODO: Use it to write out the response
         return response
+
+    def catchup(self, showname):
+        base = f"https://nyaa.si/?page=rss&q={self.publishchoice}+%2B+(1080p)+{showname.replace(' ','%20')}&c=1_2&f=2"
+        feed = feedparser.parse(base)
+        entries = feed.entries
+        entries.reverse()
+        sessiondict = {}
+        number = 75 #nyaa.si max
+        x = 0
+        while x < number and x <= len(entries):
+            try:
+                entry = entries[x]
+            except IndexError:
+                self.logger(f"Tried index {x} and failed.")
+                x+=1
+                continue
+            if "[v0]" in entry["title"]:
+                break # don't want the weird v0 stuff from erai raws.
+            try:
+                title, show, episode = self.cleantitle(entry["title"])
+            except:
+                x +=1
+                number += 1
+                continue
+            link = entry["link"]
+            if show == showname:
+                self.logger(f"current: {show} episode {episode}")
+                sessiondict["title"] = show
+                sessiondict["episode"] = episode
+                if show not in self.maindict:
+                    imagelink, bannerlink, maxepisodes = self.getinfo(show) #TODO add synopsis
+                    self.maindict[show] = {"art":{}, "meta":{}}
+                    self.maindict[show]["art"]["cover"] = imagelink
+                    self.maindict[show]["art"]["banner"] = bannerlink
+                    self.maindict[show]["meta"]["maxepisodes"] = maxepisodes
+                sessiondict["art"] = {}
+                sessiondict["art"]["cover"] = self.maindict[show]["art"]["cover"]
+                sessiondict["art"]["banner"] = self.maindict[show]["art"]["banner"]
+
+                self.maindict[show]["lastep"] = episode
+                animedict = self.dbobj.gettable("anime")["resource"]
+                lastshow = self.dbobj.query(["lastshow", "title"], "anime")["resource"]
+                #if animedict.get("lastshow", {"title":"show"})["title"] != show:
+                self.download(show, link)
+                ct = int(time.time())
+                self.maindict[show]["aired_at"] = ct
+                sessiondict["aired_at"] = ct
+                self.dbobj.write("lastshow", sessiondict, "anime")
+
+
+                x += 1
+            else:
+                number += 1
+                x += 1
+        self.dbobj.write("maindict", self.maindict, "anime")
 
     def startrun(self, number = 1):
         self.logger = Logger("Anime").logger
