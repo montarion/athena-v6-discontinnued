@@ -89,7 +89,6 @@ class Anime:
 
     def checkshow(self, show):
         # lets you check for substrings of shows as well. e.g. "One" will match "One Piece".
-        self.logger(show)
         try:
             res = [s for s in self.watchlist if show in s]
         except:
