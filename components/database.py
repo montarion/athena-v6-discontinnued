@@ -65,7 +65,7 @@ class Database:
         data = json.loads(json.dumps(fulldata[table]))
 
         data["readonly"] = rodata
-        self.logger(f"old data: {fulldata[table]}", "debug", "blue")
+        #self.logger(f"old data: {fulldata[table]}", "debug", "blue")
 
         if update: # in case you want to update lists
             if type(data[key]) == list:
@@ -80,7 +80,7 @@ class Database:
             data["readonly"].append(key)
         # save in proper form
         fulldata[table] = data
-        self.logger(f"new data: {data}", "debug", "blue")
+        #self.logger(f"new data: {data}", "debug", "blue")
 
             # write fulldata to dict
         with open(self.db, "w") as f:
