@@ -37,7 +37,7 @@ class Database:
         
         return tabledict
 
-    def write(self, key, value, table=None, readonly = False):
+    def write(self, key, value, table=None, readonly = False, update =True):
         """Usage: Database().write("foo", {"foo":"bar"}, "test")"""
         #self.logger("Writing..")
         # fix datatypes
@@ -67,7 +67,13 @@ class Database:
         data["readonly"] = rodata
         self.logger(f"old data: {fulldata[table]}", "debug", "blue")
 
-        data[key] = value # add actual data
+        if update: # in case you want to update lists
+            if type(data[key]) == list:
+                data[key].append(value)
+            else:
+                data[key] = value
+        else:
+            data[key] = value # add actual data
         if readonly:
             if "readonly" not in data:
                 data["readonly"] = []
