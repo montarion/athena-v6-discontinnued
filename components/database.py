@@ -329,7 +329,14 @@ class Database:
     def getmoduledata(self, modulename):
         """Gets json data for specific ui from a supporting module's metadata.json
            Usage: database().getmoduledata('Anime')"""
-        callerclass, _ = self.caller_name()
+        x = 2
+        while True: # loop because it might be called from a different class, by the right one
+            callerclass, _ = self.caller_name(x)
+            if callerclass in self.membase["ui-interfaces"].keys():
+                break
+            else:
+                x += 1
         fileloc = f"data/modules/{modulename}/ui/{callerclass.lower()}/metadata.json"
-        data = json.loads(fileloc)
+        with open(fileloc) as f:
+            data = json.loads(f.read())
         return data
