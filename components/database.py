@@ -84,7 +84,7 @@ class Database:
 
             # write fulldata to dict
         with open(self.db, "w") as f:
-            f.write(json.dumps(fulldata))
+            json.dump(fulldata, f, indent=4)
 
 
     def query(self, query, table=None):
@@ -185,7 +185,7 @@ class Database:
 
         # write fulldata to dict
         with open(self.db, "w") as f:
-            f.write(json.dumps(fulldata))
+            json.dump(fulldata, f, indent=4)
 
 
     def gettable(self, table):
@@ -325,3 +325,11 @@ class Database:
     def messagebuilder(self, category, msgtype, data={}, metadata={}):
         msg = json.dumps({"category":category, "type":msgtype, "data":data, "metadata":metadata})
         return msg
+
+    def getmoduledata(modulename):
+        """Gets json data for specific ui from a supporting module's metadata.json
+           Usage: database().getmoduledata('Anime')"""
+        callerclass, _ = self.caller_name()
+        fileloc = f"data/modules/{modulename}/ui/{callerclass.lower()}/metadata.json"
+        data = json.loads(fileloc)
+        return data
