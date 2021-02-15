@@ -91,6 +91,22 @@ class Core:
         self.logger("Discovery finished.")
 
 
+    def findmodulesperui(self, uidict):
+        mlist = set(list(self.moduledict))  ^ (uidict.keys())
+        tmpuidict = {}
+        for mod in mlist:
+            base = f"data/modules/{mod.lower()}/ui/"
+            try:
+                for name in os.listdir(base):
+                    if name not in tmpuidict:
+                        tmpuidict[name] = []
+                    path = os.path.isdir(base + "/" + name)
+                    if path:
+                        tmpuidict[name].append(mod)
+            except Exception as e:
+                pass
+        return uidict
+
     def ontaskcomplete(self, event):
         """ returns function result on completion of scheduled task"""
         retval = event.retval
@@ -148,11 +164,13 @@ class Core:
             capabilities = self.moduledict[module]["attr"]["capabilities"]
             classobj = self.moduledict[module]["classobj"]
             task = ""
+            finalclassobj = classobj(**dependencies)
             if "ui" in capabilities:
-                uiinterfaces[module] = finalclassobj
+                #finalclassobj = classobj(**dependencies)
+                uiinterfaces[module]= {"class": finalclassobj}
             if "blocking" in capabilities:
                 # use threaded
-                finalclassobj = classobj(**dependencies)
+                #finalclassobj = classobj(**dependencies)
                 taskobj = getattr(finalclassobj, "startrun") # running the actual function
                 task = self.tasker.createthreadedtask(taskobj) #changed from createthreadedtask
                 taskdict[module] = {}
@@ -160,7 +178,7 @@ class Core:
                 taskdict[module]["type"] = "threaded"
             else:
                 timing = self.moduledict[module]["attr"]["timing"]
-                finalclassobj = classobj(**dependencies)
+                #finalclassobj = classobj(**dependencies)
                 taskobj = getattr(finalclassobj, "startrun") # running the actual function
                 task = self.tasker.createtask(taskobj, timing["count"], timing["unit"], tag=module)
                 taskdict[module] = {}
@@ -172,6 +190,8 @@ class Core:
             self.classobjdict[name] = finalclassobj
 
         self.db.membase["classes"] = self.classobjdict
+        uiinterfaces = self.findmodulesperui(uiinterfaces)
+        self.logger(uiinterfaces)
         self.db.membase["ui-interfaces"] = uiinterfaces
         self.db.membase["taskdict"] = taskdict
         self.tasker.addlistener(self.ontaskcomplete)
