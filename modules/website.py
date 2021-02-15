@@ -71,7 +71,7 @@ class Website:
                     metadata = newmeta
 
                 try:
-                    tmppath = os.path.abspath(f"data/modules/{preset}/templates/{elementsize}")
+                    tmppath = os.path.abspath(f"data/modules/{preset}/ui/website/templates/{elementsize}")
                     finres = {}
                     for filename in files:
                         extension = filename.split(".")[-1]
@@ -125,7 +125,7 @@ class Website:
             if filename.split(".")[-1] in ["css"]:
                 finpath = safe_join(tmppath, filename)
                 self.logger(tmppath)
-                return send_from_directory(tmppath, filename)
+                return send_from_directory(tmppath, filename, mimetype = "text/stylesheet")
             if filename.split(".")[-1] == "js":
                 return send_from_directory(tmppath, filename, mimetype = "text/javascript")
             else:
