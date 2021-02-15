@@ -326,7 +326,7 @@ class Database:
         msg = json.dumps({"category":category, "type":msgtype, "data":data, "metadata":metadata})
         return msg
 
-    def getmoduledata(modulename):
+    def getmoduledata(self, modulename):
         """Gets json data for specific ui from a supporting module's metadata.json
            Usage: database().getmoduledata('Anime')"""
         callerclass, _ = self.caller_name()
