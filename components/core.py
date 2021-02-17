@@ -5,6 +5,7 @@ from components.networking import Networking as nw
 from components.tasks import Tasks
 from components.logger import Logger
 from components.watcher import Watcher as watcher
+from components.helper import Helper
 from time import sleep
 
 #test
@@ -78,7 +79,7 @@ class Core:
             dependencies = self.moduledict[item]["attr"]["dependencies"]["dependencies"]
             capabilities = self.moduledict[item]["attr"]["capabilities"]
             #self.logger(f"DEPENDENCIES: {dependencies}")
-            coremodules = ["Networking", "Database", "Watcher"]
+            coremodules = ["Networking", "Database", "Watcher", "Helper"]
             failedlist = [x for x in dependencies if x not in coremodules and x not in list(self.moduledict.keys())]
             if len(failedlist) > 0: # TODO: if failelist includes agents, pass through anyway
                 self.logger(f"couldn't meet dependencies for {item}", "info", "red")
@@ -105,7 +106,7 @@ class Core:
                         tmpuidict[name].append(mod)
             except Exception as e:
                 pass
-        return uidict
+        return tmpuidict
 
     def ontaskcomplete(self, event):
         """ returns function result on completion of scheduled task"""
@@ -132,6 +133,9 @@ class Core:
         # init tasker
         self.tasker = Tasks(self.db)
 
+        # init helper
+        self.helper = Helper()
+
         # test
         self.discovermodules()
 
@@ -141,6 +145,7 @@ class Core:
         self.classobjdict["Networking"] = Networking
         self.classobjdict["Database"] = self.db
         self.classobjdict["Tasks"] = self.tasker
+        self.classobjdict["Helper"] = self.helper
 
         #self.logger(self.classobjdict, "alert", "blue")
         Watcher = watcher(self.db, self.classobjdict)
@@ -195,4 +200,5 @@ class Core:
         self.db.membase["ui-interfaces"] = uiinterfaces
         self.db.membase["taskdict"] = taskdict
         self.tasker.addlistener(self.ontaskcomplete)
+        self.logger("running!", "debug", "red")
         self.tasker.run()

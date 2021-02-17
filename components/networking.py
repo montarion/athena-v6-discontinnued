@@ -43,17 +43,23 @@ class Networking:
         else:
             return table
 
-    def findtarget(self, query):
+    def findtarget(query):
         idlist = []
         self.logger(f"searching for {query}", "debug")
         res = self.db.gettable("users")
         for key in res["resource"]:
             dic = res["resource"]
-            searchres = query in dic[key].values()
-            if searchres:
-                idlist.append(dic[key]["id"])
-        return idlist
+            for user in dic:
+                userdata = dic[user]
+                for val in userdata.values():
+                    if type(val) == int  or type(query) == int:
+                        searchres = query == val
+                    else:
+                        searchres = query in val
+                    if searchres:
+                        idlist.append(dic[key]["id"])
 
+        return idlist
     def regsend(self, message, targetidlist):
         loop = self.db.membase["eventloop"]
         self.logger("Sending through regsend")
@@ -140,6 +146,7 @@ class Networking:
             if category == "admin":
                 if qtype == "signin":
                     name = data["name"]
+                    capabilities = data.get("capabilities", [])
                     self.logger("received signin")
                     self.logger(data.keys())
                     if "id" in data.keys():
@@ -149,7 +156,7 @@ class Networking:
                         #create new id
                         id = self.createid()
                     self.db.membase[id] = {"socket": websocket}
-                    self.db.write(id, {"id":id, "name": name}, "users")
+                    self.db.write(id, {"id":id, "name": name, "capabilities": capabilities}, "users")
                     returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "data":{"id":id}})
                     await self.send(returnmsg, [id])
 
