@@ -18,6 +18,7 @@ class Tasks:
         #self.schedule = AsyncIOScheduler() 
         self.schedule = BackgroundScheduler()
         self.funclist = []
+        self.uilist = []
 
     def createtask(self, functarget, count, unit, tag="user task"):
         #task = getattr(schedule.every(count), unit).do(functarget).tag(tag)
@@ -29,8 +30,7 @@ class Tasks:
 
     def createthreadedtask(self, functarget, argdict={}):
         task = threading.Thread(target=functarget, kwargs=argdict)
-        task.start()
-        #task = self.schedule.add_job(task.start)
+        task = self.schedule.add_job(task.start)
         return task
 
     def pause(self, target):
