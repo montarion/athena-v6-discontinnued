@@ -15,7 +15,6 @@ class Discord:
         self.db = Database
         self.watcher = Watcher
         #self.timing = {"unit": "minutes", "count":10}
-        self.guildcommands = ["settings", "help"]
         self.msgdict = {}
         self.authordict = {}
         self.waitingformsg = False
@@ -51,47 +50,12 @@ class Discord:
                 return
             if self.waitingformsg:
                 return 
-            def servermsgcheck(msg):
-                return msg.content.startswith(self.prefix) and msg.guild
 
-            def privatemsgcheck(msg):
-                return msg.guild == None
-
-            if servermsgcheck(message):
-                await self.servermsghandler(message)
-
-            if privatemsgcheck(message):
-                await self.privatemsghandler(message)
+            
+            await self.msghandler(message)
 
 
-    async def servermsghandler(self, message):
-        #commands = ["settings", "help"]
-        if message.author == self.client.user:
-                return
-
-        msg = message.content[len(self.prefix):]
-        author = str(message.author)
-        self.authordict[author] = {"channel": message.channel}
-        self.parsemsg(msg, author)
-        if "help" in msg:
-            ## create embed
-            embed = discord.Embed(
-                title = "Usage:",
-                description = "Possible commands are: !settings(if you're authorized)\n!anime"
-            )
-            await message.channel.send(embed=embed)
-            calltest = self.db.caller_name()
-            await message.channel.send(str(calltest))
-        elif "settings" in msg:
-            await self.routines.settings(message)
-        elif "anime" in msg:
-            await self.routines.anime(message)
-        else:
-            if self.waitingformsg:
-                return
-            #await message.channel.send('Not sure what that means bruv')
-
-    async def privatemsghandler(self, message):
+    async def msghandler(self, message):
         if message.author == self.client.user:
                 return
         
@@ -103,18 +67,11 @@ class Discord:
             ## create embed
             embed = discord.Embed(
                 title = "Usage:",
-                description = "Possible commands are: !settings(if you're authorized)"
+                description = f"Possible commands are:\n{self.commandlist}"
             )
             await message.channel.send(embed=embed)
-        elif "settings" in msg:
-            await self.routines.settings(message)
-        elif "compress" in msg:
-            await self.routines.compress(message)
         else:
-            if self.waitingformsg:
-                return
-
-            #await message.channel.send('Not sure what that means bruv')
+            await self.routines.handlecommand(message)
 
     def parsemsg(self, msg, author):
         arglist = []
@@ -130,17 +87,19 @@ class Discord:
             arglist = self.msgdict[author]
             # save new
             self.msgdict[author] = arglist[1:]
+            self.logger(self.msgdict[author], "debug", "blue")
             res = arglist[0]
         else:
             self.waitingformsg = True
             chan = self.authordict[author]["channel"]
             #await chan.send("Yes, I'm listening..")
             res = await self.client.wait_for("message", check=check)
+            #res = res.content
             self.waitingformsg = False
-            res = res.content
+            return res.content, res
         self.waitingformsg = False
 
-        return res
+        return res, None
 
     def eval(self, t):
         try:
@@ -176,11 +135,12 @@ class Discord:
 
         self.client = discord.Client()
 
-        loop.create_task(self.client.start("NzUwMDQwMDE0NjI4NTg1NDcz.X00vMg.h0WJy7mSEaGl7xWUNc5b9bUD1xQ"))
+        bottoken = self.db.query(["discord", "token"], "credentials")["resource"]
+        loop.create_task(self.client.start(bottoken))
         self.routines = Routines(self.db, self.client, self)
         self.prefix = "!"
-        self.guildcommands =["settings", "help"]
-        self.privcommands = ["help"]
+        self.commandlist = [x.lower() for x in self.db.membase["ui-interfaces"]["discord"]]
+        self.logger(self.commandlist, "debug")
         loop.create_task(self.dostuff())
         loop.run_forever()
 
@@ -283,10 +243,19 @@ class Routines:
 
         await dmchan.send(f"changed data, new value for \"{key}\" is: {val}")
 
-    async def anime(self, message): # filter support earlier
-        """allows for anime stuff"""
+    async def handlecommand(self, message): # filter support earlier
+        """allows for command handling"""
+        category = message.content.split(" > ")[0]
+        # check if from server
+        fromserver = message.guild != None
+        if fromserver and category[0] == self.discobj.prefix:
+            category = category[1:]
+
+        # check if it's an actual command
+        if category not in self.discobj.commandlist:
+            return
         # grab metadata.json for this command
-        metadata = self.db.getmoduledata("anime")
+        metadata = self.db.getmoduledata(category)
         commands = metadata["commands"]
         
         msg = message.content
@@ -295,11 +264,14 @@ class Routines:
 
         # start with a main embed
         embed = discord.Embed(
-            title = "Anime",
+            title = category.capitalize(),
         )
         embed.add_field(
             name="commands",
             value=f"{', '.join(commands)}."
+        )
+        embed.set_footer(
+            text="Please choose a command, or type 'exit'."
         )
         if ">" not in msg:
             await message.channel.send(embed=embed)
@@ -310,25 +282,29 @@ class Routines:
 
 
         while True:
-            response = await self.discobj.wait_for_ext("message", check=rescheck, author=authorname)
+            response, resobj = await self.discobj.wait_for_ext("message", check=rescheck, author=authorname)
+
+            self.logger(response)
             if response in commands:
                 msg = response
                 break
             else:
-                await message.channel.send(f"That is not a valid option. Not that I know wtf I want..")
-        if msg == "lastshow":
+                await message.channel.send(f"That is not a valid option. Valid commands are:\n{commands}")
+        curcom = metadata[msg] # current command
+        self.logger(curcom["type"], "debug")
+        if curcom["type"] == "query":
             #res = self.db.query("lastshow", "anime")["resource"]
             # check for query
             curcom = metadata[msg] # current command
-            if "dbquery" in curcom:
-                if "table" in curcom["dbquery"]:
-                    table = curcom["dbquery"]["table"]
+            if curcom["store"] == "db":
+                if "table" in curcom:
+                    table = curcom["table"]
                 else:
-                    table = "anime"
+                    table = category
                 #TODO: fix resource/ status system
-                res = self.db.query(curcom["dbquery"]["key"], table)["resource"]
-            elif "classquery" in curcom:
-                res = self.discobj.watcher.getclass(curcom["classquery"])["resource"]
+                res = self.db.query(curcom["key"], table)["resource"]
+            elif curcom["store"] == "query":
+                res = self.discobj.watcher.getclass(curcom["classname"])["resource"]
 
             if curcom["return"]["type"] == "embed":
                 retdict = curcom["return"]
@@ -340,6 +316,7 @@ class Routines:
 
                 if "thumbnail" in retdict:
                     urldict = res
+                    self.logger(retdict["thumbnail"], "debug")
                     for k in retdict["thumbnail"]:
                         urldict = urldict[k]
                     url = urldict
@@ -362,12 +339,40 @@ class Routines:
                         value=value
                     )
 
-
             await message.channel.send(embed = embed)
             
-        elif msg == "catchup":
-            pass
-            
+        elif curcom["type"] == "interactive":
+            routinedict = {} # save whatever comes up within this set of routines
+            routinedict["channel"] = message.channel
+            routines = curcom["routines"]
+            for num in sorted(routines):
+                routine = routines[num]
+                rtype = routine["type"]
+                if rtype == "question":
+                    # ask question and wait on the reaction
+                    name = routine["name"]
+                    question = routine["question"]
+                    # save result
+                    await message.channel.send(question)
+                    response, respobj = await self.discobj.wait_for_ext("message", check=rescheck, author=authorname)
+                    if respobj:
+                        message = respobj
+                    routinedict[name] = response
+                    
+                if rtype == "run": # run function
+                    async with message.channel.typing():
+                        watcher = self.discobj.watcher
+                        prefunc = getattr(watcher.getclass(routine["class"])["resource"], routine["function"])
+                        args = [routinedict[x] for x in routine["arguments"]]
+                        result = prefunc(*args)["status"]
+                        routinedict["status"] = result
+                if rtype == "status":
+                    if routinedict["status"] == 200:
+                        checkmark = "\N{WHITE HEAVY CHECK MARK}"
+                        await message.add_reaction(checkmark)
+                    else:
+                        await message.reply(content="failed..")
+
         else:
              await message.channel.send(f"That is not a valid option. Not that I know wtf I want..")
 
