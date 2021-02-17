@@ -320,6 +320,8 @@ class Database:
         for i in name:
             if "." in i:
                 name.remove(i)
+            if i == "__main__":
+                name.remove(i)
         return name
 
     def messagebuilder(self, category, msgtype, data={}, metadata={}):
@@ -331,8 +333,8 @@ class Database:
            Usage: database().getmoduledata('Anime')"""
         x = 2
         while True: # loop because it might be called from a different class, by the right one
-            callerclass, _ = self.caller_name(x)
-            if callerclass in self.membase["ui-interfaces"].keys():
+            callerclass, callerfunc = self.caller_name(x)
+            if callerclass.lower() in self.membase["ui-interfaces"].keys():
                 break
             else:
                 x += 1
