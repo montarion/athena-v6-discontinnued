@@ -51,7 +51,10 @@ class Discord:
             if self.waitingformsg:
                 return 
 
-            
+            # if not using the prefix in a server, disregard
+            fromserver = message.guild != None
+            if fromserver and message.content[0] != self.prefix:
+                return 
             await self.msghandler(message)
 
 
@@ -87,7 +90,6 @@ class Discord:
             arglist = self.msgdict[author]
             # save new
             self.msgdict[author] = arglist[1:]
-            self.logger(self.msgdict[author], "debug", "blue")
             res = arglist[0]
         else:
             self.waitingformsg = True
@@ -246,6 +248,7 @@ class Routines:
     async def handlecommand(self, message): # filter support earlier
         """allows for command handling"""
         category = message.content.split(" > ")[0]
+
         # check if from server
         fromserver = message.guild != None
         if fromserver and category[0] == self.discobj.prefix:
@@ -304,7 +307,8 @@ class Routines:
                 #TODO: fix resource/ status system
                 res = self.db.query(curcom["key"], table)["resource"]
             elif curcom["store"] == "query":
-                res = self.discobj.watcher.getclass(curcom["classname"])["resource"]
+                preres = self.discobj.watcher.getclass(curcom["classname"])["resource"]
+                
 
             if curcom["return"]["type"] == "embed":
                 retdict = curcom["return"]
