@@ -28,7 +28,7 @@ class Website:
         # detect other ui elements
         pass
 
-    def query(self, connectionID, query):
+    def query(self, query, connectionID = 666):
         """connectionID is the id of who is asking(starts at 0, database is 999)
            the query is a dict containing the following keys:
             "category", "type", "data", "metadata"

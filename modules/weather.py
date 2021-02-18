@@ -127,7 +127,7 @@ class Weather:
         }
         return tdict
 
-    def query(self, connectionID, query):
+    def query(self, query, connectionID=666):
         """connectionID is the id of who is asking(starts at 0, database is 999)
            the query is a dict containing the following keys:
             "category", "type", "data", "metadata"
@@ -142,7 +142,7 @@ class Weather:
                 curdict = self.db.query("currentweather", "weather")
                 if curdict["status"][:2] == "20":
                     data = curdict["resource"]
-                    response = self.watcher.getclass("Networking")["result"].messagebuilder("weather", "current", data, metadata)
+                    response = self.watcher.getclass("Networking")["resource"].messagebuilder("weather", "current", data, metadata)
 
         # TODO: Read out the query
         # TODO: Use it to write out the response

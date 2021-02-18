@@ -127,8 +127,8 @@ class Networking:
             #TODO: send it to the appropriate manager/agent, maybe check with guid
             result = self.watcher.getclass(target)
             if result["status"] == 200:
-                classtosend = result["result"]
-                result = classtosend.query(1, msg)
+                classtosend = result["resource"]
+                result = classtosend.query(msg, 1)
                 if result: # send it back
                     # check for guid inclusion
                     if guidcheck:

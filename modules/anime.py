@@ -175,7 +175,7 @@ class Anime:
 
         return chosenlist
 
-    def query(self, connectionID, query):
+    def query(self, query, connectionID=666):
         """connectionID is the id of who is asking(starts at 0, database is 999)
            the query is a dict containing the following keys:
             "category", "type", "data", "metadata"
@@ -264,12 +264,13 @@ class Anime:
                 sessiondict["aired_at"] = ct
                 self.dbobj.write("lastshow", sessiondict, "anime")
 
-
                 x += 1
             else:
                 number += 1
                 x += 1
         self.dbobj.write("maindict", self.maindict, "anime")
+        result ={"status": 200}
+        return result
 
     def startrun(self, number = 1):
         self.logger = Logger("Anime").logger

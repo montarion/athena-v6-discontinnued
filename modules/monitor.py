@@ -55,7 +55,7 @@ class Monitor:
         res["misc"] = self.getmisc()
         self.db.write("info", res, "monitor")
 
-    def query(self, connectionID, query):
+    def query(self, query, connectionID = 666):
         """connectionID is the id of who is asking(starts at 0, database is 999)
            the query is a dict containing the following keys:
             "category", "type", "data", "metadata"
