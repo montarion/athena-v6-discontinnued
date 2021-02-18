@@ -121,7 +121,7 @@ class Website:
 
         @self.app.route("/templates/<path:size>/<path:location>/<path:filename>")
         def template(location, filename, size):
-            tmppath = os.path.abspath(f"data/modules/{location}/templates/{size}")
+            tmppath = os.path.abspath(f"data/modules/{location}/ui/website/templates/{size}")
             if filename.split(".")[-1] in ["css"]:
                 finpath = safe_join(tmppath, filename)
                 self.logger(tmppath)
