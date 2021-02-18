@@ -4,3 +4,4 @@ shortuuid
 apscheduler
 psutil
 filelock
+fuzzywuzzy
