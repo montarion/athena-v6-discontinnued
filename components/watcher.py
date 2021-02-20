@@ -99,8 +99,8 @@ class Watcher:
             if threaded:
                 threading.Thread(target=getattr(classobj(database), funcname), kwargs=args).start()
             else:
-                getattr(classobj(database), funcname(**args))
-
+                res = getattr(classobj(database), funcname(**args))
+                return res
     def register(self, regdata):
         """
             Registers function to be ran when a specific other function is run/published
