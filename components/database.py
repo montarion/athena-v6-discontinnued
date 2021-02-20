@@ -67,6 +67,9 @@ class Database:
         data["readonly"] = rodata
         #self.logger(f"old data: {fulldata[table]}", "debug", "blue")
 
+        if key not in data: # can't update something that doesn't exist, so check first
+            update = False
+
         if update: # in case you want to update lists
             if type(data[key]) == list:
                 data[key].append(value)
@@ -129,9 +132,10 @@ class Database:
                         pass
             #self.logger(f"result: {result} - {type(result)}", "debug", "red")
 
-            msg = {"status": "200", "resource":result}
+            msg = {"status": "200", "resource":result, "succesfull": True}
             return msg
         except KeyError as e:
+            """
             # ask question
             callerclass, callerfunc = self.caller_name()
             self.logger(f"Query for \"{query}\" in table: {table} requested by: {callerclass, callerfunc}", "debug", "yellow")
@@ -155,7 +159,9 @@ class Database:
                 # TODO: implement timeout function
                 res = {"status": "404", "resource": f"Query: \"{query}\" not found"}
             return res
-
+            """
+            res = {"status": "404", "resource": f"Query: \"{query}\" not found", "succesfull": False}
+            return res
     def remove(self, query, table=None):
         """NOT IMPLEMENTED"""
         #TODO: IMPLEMENT
@@ -210,26 +216,26 @@ class Database:
         """
         try:
             table = fulldata[table]
-            res = {"status": 200, "resource": table}
+            res = {"status": 200, "resource": table, "succesfull": True}
         except KeyError:
             try: #create it
                 table = {}
                 fulldata[table] = {}
-                res = {"status": 200, "resource": table}
+                res = {"status": 200, "resource": table, "succesfull": True}
             except:
-                res = {"status": 404, "resource": f"table: \"{table}\" not found"}
+                res = {"status": 404, "resource": f"table: \"{table}\" not found", "succesfull": False}
         #self.logger(res, "debug", "yellow")
         return res
 
     def gettables(self):
         fulldata = self.getdbfile()
         tables = list(fulldata.keys())
-        res = {"status": 200, "resource": tables}
+        res = {"status": 200, "resource": tables, "succesfull": True}
         return res
 
     def geteditable(self):
         tables = self.getdbfile(True)
-        res = {"status": 200, "resource": tables}
+        res = {"status": 200, "resource": tables, "succesfull": True}
         return res
 
     def getfromuser(self, questionlist):
@@ -241,11 +247,14 @@ class Database:
         self.logger(taskclass)
         taskclass.pause(asker[0])
 
-        ui_interfaces = self.membase["ui-interfaces"]
+        ui_interfaces = self.membase["ui-interfaces"].keys()
         self.logger(ui_interfaces, "alert", "green")
         # choose the best ui
         # hardcoded to website for now
-        bestui = "Website"
+        currentui = self.query("current_ui", "system")
+        if not currentui["succesfull"]:
+            currentui = self.query("primary_ui", "system")
+        currentui = currentui["resource"]
         if bestui == "Website":
             bestuiuser = "website"
             # write down somewhere that website requires networking
