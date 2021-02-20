@@ -83,7 +83,7 @@ class Watcher:
             return {"resource": "Class not found", "status": 404} 
 
 
-    def execute(self, classname, funcname=None, args={}):
+    def execute(self, classname, funcname=None, args={}, threaded=False):
         self.logger("inside execute function")
         database = self.getclass("Database")
         if type(classname) == str:
@@ -96,8 +96,10 @@ class Watcher:
         self.logger(classobj)
         if funcname:
             # do things with class object
-            threading.Thread(target=getattr(classobj(database), funcname), kwargs=args).start()
-        
+            if threaded:
+                threading.Thread(target=getattr(classobj(database), funcname), kwargs=args).start()
+            else:
+                getattr(classobj(database), funcname(**args))
 
     def register(self, regdata):
         """
