@@ -11,7 +11,7 @@ from fuzzywuzzy import process
 class Discord:
     def __init__(self, Database=None, Watcher=None):
         self.dependencies = {"tier":"user", "dependencies":["Database", "Watcher"]}
-        self.capabilities = ["ui","input", "output", "blocking"]
+        self.capabilities = ["ui","input", "output", "blocking", "question"]
         self.db = Database
         self.watcher = Watcher
         #self.timing = {"unit": "minutes", "count":10}
@@ -84,6 +84,21 @@ class Discord:
                 arglist.append(newarg)
             self.msgdict[author] = arglist
 
+    def question(self, question):
+        preusername = self.db.query(["username", "discord"], "personalia")
+        if preusername["succesfull"]:
+            username = preusername["resource"]
+        else:
+            self.logger("Don't know who owns me. exiting.", "alert", "red")
+            exit(1)
+        channel = self.authordict[username]["channel"]
+        self.loop.run_until_complete(message.channel.send(question))
+        response, respobj = self.loop.run_until_complete(self.discobj.wait_for_ext("message", check=rescheck, author=username))
+        if respobj:
+            message = response
+            self.logger(response)
+        return response
+
     async def wait_for_ext(self, event, check=None, author=None):
         self.waitingformsg = True
         if author and author in self.msgdict and len(self.msgdict[author]) > 0:
@@ -132,19 +147,19 @@ class Discord:
         self.datapath = f"data/modules/{self.__class__.__name__.lower()}"
 
         # create asyncio loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
 
         self.client = discord.Client()
 
         bottoken = self.db.query(["discord", "token"], "credentials")["resource"]
-        loop.create_task(self.client.start(bottoken))
+        self.loop.create_task(self.client.start(bottoken))
         self.routines = Routines(self.db, self.client, self)
         self.prefix = "!"
-        self.commandlist = [x.lower() for x in self.db.membase["ui-interfaces"]["discord"]]
+        self.commandlist = [x.lower() for x in self.db.membase["ui-interfaces"]["support"]["discord"]]
         self.logger(self.commandlist, "debug")
-        loop.create_task(self.dostuff())
-        loop.run_forever()
+        self.loop.create_task(self.dostuff())
+        self.loop.run_forever()
 
 
 class Routines:
@@ -307,7 +322,7 @@ class Routines:
                 #TODO: fix resource/ status system
                 res = self.db.query(curcom["key"], table)["resource"]
             elif curcom["store"] == "query":
-                preres = self.discobj.watcher.getclass(curcom["classname"])["resource"]
+                res = self.discobj.watcher.getclass(curcom["classname"])["resource"]
                 
 
             if curcom["return"]["type"] == "embed":
