@@ -25,7 +25,7 @@ class Discord:
         async def on_ready():
             self.logger('We have logged in as {0.user}'.format(self.client))
             game = discord.Game("the stonkmarket")
-            await self.client.change_presence(status=discord.Status.idle, activity=game)
+            await self.client.change_presence(status=discord.Status.online, activity=game)
             ## create embed
             embed = discord.Embed(
                 title = "Startup report",
