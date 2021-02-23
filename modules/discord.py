@@ -85,15 +85,23 @@ class Discord:
             self.msgdict[author] = arglist
 
     def question(self, question):
-        preusername = self.db.query(["username", "discord"], "personalia")
-        if preusername["succesfull"]:
+        preusername = self.db.query(["usernames", "discord"], "personalia")
+        if preusername["successful"]:
             username = preusername["resource"]
         else:
             self.logger("Don't know who owns me. exiting.", "alert", "red")
             exit(1)
         channel = self.authordict[username]["channel"]
-        self.loop.run_until_complete(message.channel.send(question))
-        response, respobj = self.loop.run_until_complete(self.discobj.wait_for_ext("message", check=rescheck, author=username))
+        task = asyncio.ensure_future(channel.send(question))
+        #self.loop.run_until_complete(asyncio.wait([task]))
+
+        def rescheck(msg):
+            return msg.channel == channel
+
+        #TODO: fix this..(triggered by sending "!hey" in the server)
+        resp, respobj = asyncio.ensure_future(self.wait_for_ext("message", check=rescheck, author=username))
+        #resp, respobj = self.loop.run_until_complete(asyncio.wait([task]))
+
         if respobj:
             message = response
             self.logger(response)
@@ -271,6 +279,9 @@ class Routines:
 
         # check if it's an actual command
         if category not in self.discobj.commandlist:
+            answer = self.discobj.db.getfromuser(["How are you?"])
+            
+            await message.channel.send(f"Your answer was: {answer}")
             return
         # grab metadata.json for this command
         metadata = self.db.getmoduledata(category)
