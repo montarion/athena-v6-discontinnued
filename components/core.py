@@ -110,8 +110,10 @@ class Core:
 
     def ontaskcomplete(self, event):
         """ returns function result on completion of scheduled task"""
-        retval = event.retval
-        if retval:
+        jobname = self.tasker.getjobname(event.job_id)
+        if "retval" in dir(event):
+            retval = event.retval
+            self.logger(f"retval: {retval}", "debug")
             id = event.job_id
             try:
                 classname, funcname = self.tasker.getjobname(id)
@@ -196,9 +198,11 @@ class Core:
 
         self.db.membase["classes"] = self.classobjdict
         uiinterfaces = self.findmodulesperui(uiinterfaces)
-        self.logger(uiinterfaces)
-        self.db.membase["ui-interfaces"] = uiinterfaces
+        self.db.membase["ui-interfaces"] = {}
+        self.db.membase["ui-interfaces"]["support"] = uiinterfaces
+        
         self.db.membase["taskdict"] = taskdict
         self.tasker.addlistener(self.ontaskcomplete)
         self.logger("running!", "debug", "red")
         self.tasker.run()
+        self.tasker.getjobs()
