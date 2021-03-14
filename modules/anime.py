@@ -69,7 +69,7 @@ class Anime:
                     category = "anime"
                     type = "latest"
                     artdict = sessiondict["art"]
-                    data = {"title":show, "lastep": episode, "art":artdict, "aired_at":ct}
+                    data = {"category": "anime", "type": "update", "data": {"title":show, "lastep": episode, "art":artdict, "aired_at":ct}}
                     self.retval = data
                     metadata = {"status": 200}
                     #res = self.networking.messagebuilder(category, type, data, metadata, "all")
@@ -82,7 +82,7 @@ class Anime:
                 x += 1
         self.dbobj.write("maindict", self.maindict, "anime")
         if self.retval:
-            tmp = self.retval
+            tmp = {"status": 200, "resource": self.retval, "successful":True}
             self.retval = None
             return tmp
 
@@ -156,6 +156,8 @@ class Anime:
         chrome_opts.add_argument("--disable-gpu")
         chrome_opts.add_argument("--disable-extensions")
         chrome_opts.add_argument("--log-level=OFF")
+        chrome_opts.add_argument("--disable-dev-shm-usage")
+        chrome_opts.add_argument("--no-sandbox")
         driver = webdriver.Chrome(options=chrome_opts)
         driver.get(url)
         sleep(6)
@@ -280,6 +282,7 @@ class Anime:
         prelist = self.dbobj.query("watchlist", "anime")
         if prelist["status"][:2] == "20":
             self.watchlist = prelist["resource"]
+            
         else:
             self.watchlist = self.findshows()
 
@@ -290,5 +293,6 @@ class Anime:
             self.maindict = {}
 
         result = self.getshows(number)
-        if result:
+        
+        if result and "status" in result and result["status"] == 200:
             return result
