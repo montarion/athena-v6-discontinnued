@@ -36,7 +36,7 @@ class Tasks:
     def pause(self, target):
         # check if target in membase. if so, stop execution
         taskdict = self.db.membase["taskdict"]
-        if target in taskdict:
+        if target in taskdict and "task" in taskdict[target]:
             job = taskdict[target]["task"]
             job.pause()
             self.logger(f"Paused: {target}")
@@ -76,4 +76,4 @@ class Tasks:
             return classname, funcname
         return 404, 404
     def addlistener(self, function):
-        self.schedule.add_listener(function, events.EVENT_JOB_EXECUTED)
+        self.schedule.add_listener(function, mask=4096)

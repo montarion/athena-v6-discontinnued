@@ -6,7 +6,7 @@ class Watcher:
     def __init__(self, Database, classobjdict):
         self.logger = Logger("Watcher").logger
         self.r = redis.Redis(host='localhost', port=6379, db=0)
-        self.p = self.r.pubsub(ignore_subscribe_messages=True)
+        self.p = self.r.pubsub(ignore_subscribe_messages=False)
         self.dbobj = Database
         self.logger(self.dbobj)
         self.classobjdict = classobjdict
@@ -77,29 +77,31 @@ class Watcher:
     def getclass(self, classname):
         self.classobjdict = self.dbobj.membase["classes"]
         if classname in self.classobjdict:
-            return {"resource": self.classobjdict[classname], "status": 200}
+            return {"resource": self.classobjdict[classname], "status": 200, "successful": True}
         else:
             self.logger("class not found")
-            return {"resource": "Class not found", "status": 404} 
+            return {"resource": "Class not found", "status": 404, "successful": False} 
 
 
-    def execute(self, classname, funcname=None, args={}, threaded=False):
+    def execute(self, classname, funcname, args={}, threaded=False):
         self.logger("inside execute function")
         database = self.getclass("Database")
         if type(classname) == str:
             classobj = self.getclass(classname)
-            self.logger(classobj)
-            if not inspect.isclass(classobj):
+            if not classobj["successful"]:
+                self.logger("Class not found.")
                 return "Class not found"
+            classobj = classobj["resource"]
         else:
             classobj = classname
-        self.logger(classobj)
+        self.logger(f"classname: {classobj}")
+        self.logger(f"funcname: {funcname}")
         if funcname:
             # do things with class object
             if threaded:
                 threading.Thread(target=getattr(classobj(database), funcname), kwargs=args).start()
             else:
-                res = getattr(classobj(database), funcname(**args))
+                res = getattr(classobj, funcname)(**args)
                 return res
     def register(self, regdata):
         """
