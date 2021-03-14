@@ -176,6 +176,7 @@ class Routines:
         self.client = client
         self.db = db
         self.discobj = discobj
+        self.inroutine = False # working on specific routine
 
     async def settings(self, message):
         # create embed
@@ -278,7 +279,7 @@ class Routines:
             category = category[1:]
 
         # check if it's an actual command
-        if category not in self.discobj.commandlist:
+        if category not in self.discobj.commandlist and not self.inroutine:
             answer = self.discobj.db.getfromuser(["How are you?"])
             
             await message.channel.send(f"Your answer was: {answer}")
@@ -332,6 +333,8 @@ class Routines:
                     table = category
                 #TODO: fix resource/ status system
                 res = self.db.query(curcom["key"], table)["resource"]
+                self.logger(res.keys(), "debug")
+                self.logger(curcom["key"])
             elif curcom["store"] == "query":
                 res = self.discobj.watcher.getclass(curcom["classname"])["resource"]
                 
@@ -339,13 +342,18 @@ class Routines:
             if curcom["return"]["type"] == "embed":
                 retdict = curcom["return"]
                 titlekey = curcom["return"]["title"]
+                if titlekey in res:
+                    titlestr = res[titlekey]
+                else:
+                    titlestr = titlekey
                 self.logger(res, "debug")
                 embed = discord.Embed(
-                    title=f"{res[titlekey]}"
+                    title=titlestr
                 )
 
                 if "thumbnail" in retdict:
                     urldict = res
+                    self.logger(f"urldict: {urldict.keys()}")
                     self.logger(retdict["thumbnail"], "debug")
                     for k in retdict["thumbnail"]:
                         urldict = urldict[k]
@@ -354,7 +362,14 @@ class Routines:
 
                 for field in retdict["fields"]:
                     name = field["name"]
-                    value = res[field["value"]]
+                    if type(field["value"]) == list:
+                        resclone = res
+                        for i, val in enumerate(field["value"]):
+                            resclone = resclone[field["value"][i]]
+                        value = resclone
+                        resclone = None
+                    else:
+                        value = res[field["value"]]
                     if "function" in field:
                         if "class" in field:
                             watcher = self.discobj.watcher
@@ -364,9 +379,11 @@ class Routines:
                             if field["function"] in dir(self):
                                 value = getattr(self, field["function"])(value)
 
+                    inline = res.get("inline", True)
                     embed.add_field(
                         name=name,
-                        value=value
+                        value=value,
+                        inline = inline
                     )
 
             await message.channel.send(embed = embed)
