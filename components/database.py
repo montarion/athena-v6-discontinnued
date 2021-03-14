@@ -118,13 +118,14 @@ class Database:
                                 pass
             """
             data = fulldata[table]
+            if type(query) == str:
+                query = [query]
             if type(query) == list: #e.g. ..query(["lastshow", "title"])
                 for q in query:
                     data = data[q]
                 result = data
             else:
-                result = data[query]
-
+                raise KeyError
             if type(result) == str:
                 try:
                     result = eval(result)
@@ -132,7 +133,7 @@ class Database:
                         pass
             #self.logger(f"result: {result} - {type(result)}", "debug", "red")
 
-            msg = {"status": "200", "resource":result, "succesfull": True}
+            msg = {"status": "200", "resource":result, "successful": True}
             return msg
         except KeyError as e:
             """
@@ -160,7 +161,7 @@ class Database:
                 res = {"status": "404", "resource": f"Query: \"{query}\" not found"}
             return res
             """
-            res = {"status": "404", "resource": f"Query: \"{query}\" not found", "succesfull": False}
+            res = {"status": "404", "resource": f"Query: \"{query}\" not found", "successful": False}
             return res
     def remove(self, query, table=None):
         """NOT IMPLEMENTED"""
@@ -216,26 +217,26 @@ class Database:
         """
         try:
             table = fulldata[table]
-            res = {"status": 200, "resource": table, "succesfull": True}
+            res = {"status": 200, "resource": table, "successful": True}
         except KeyError:
             try: #create it
                 table = {}
                 fulldata[table] = {}
-                res = {"status": 200, "resource": table, "succesfull": True}
+                res = {"status": 200, "resource": table, "successful": True}
             except:
-                res = {"status": 404, "resource": f"table: \"{table}\" not found", "succesfull": False}
+                res = {"status": 404, "resource": f"table: \"{table}\" not found", "successful": False}
         #self.logger(res, "debug", "yellow")
         return res
 
     def gettables(self):
         fulldata = self.getdbfile()
         tables = list(fulldata.keys())
-        res = {"status": 200, "resource": tables, "succesfull": True}
+        res = {"status": 200, "resource": tables, "successful": True}
         return res
 
     def geteditable(self):
         tables = self.getdbfile(True)
-        res = {"status": 200, "resource": tables, "succesfull": True}
+        res = {"status": 200, "resource": tables, "successful": True}
         return res
 
     def getfromuser(self, questionlist):
@@ -252,55 +253,13 @@ class Database:
         # choose the best ui
         # hardcoded to website for now
         currentui = self.query("current_ui", "system")
-        if not currentui["succesfull"]:
+        if not currentui["successful"]:
             currentui = self.query("primary_ui", "system")
+        self.logger(currentui)
         currentui = currentui["resource"]
-        if bestui == "Website":
-            bestuiuser = "website"
-            # write down somewhere that website requires networking
-            realquestionlist = {}
-            self.logger(questionlist)
-            for q in questionlist:
-                realquestionlist[q["type"]] = q["question"]
-
-            for q in realquestionlist:
-                finq = {"asker":asker, "question":realquestionlist[q]}
-                #create guid
-                guid = shortuuid.uuid()[:8]
-                msg = {"category":"question", "type":"text", "data":finq,"metadata": {"copy":{"guid":guid}}}
-
-
-                self.logger(self.membase["classes"], "debug", "blue")
-                # get network class
-                networking = self.membase["classes"]["Networking"]
-                self.logger(networking)
-                # get watcher class
-                watcher = self.membase["classes"]["Watcher"]
-
-                # send to website
-
-                ui_id = networking.findtarget(bestuiuser)
-                self.logger(ui_id)
-
-                # register yourself with watcher
-                regdata = {"trigger":{"class":"Networking"}, "result":{"class": self, "function":"responsewait"}}
-                watcher.register(regdata)
-
-                # send message
-                networking.regsend(msg, ui_id)
-
-                # wait for your answer to come in
-                while True:
-                    if self.userresponse.get("category", None) == "answer": # response looks like: {"category":"answer", "type":"text", "data":{"answer":"('52.090', '5.232')"}, "metadata":{"guid": "QonSPv29"}};
-                        if self.userresponse["metadata"].get("guid") == guid:
-                            # TODO: unsubscribe from networking
-                            break
-                    sleep(0.5)
-                del self.userresponse["metadata"]["guid"]
-
-                # start schedule again
-                taskclass.resume(asker[0])
-                return self.userresponse
+        self.logger(currentui)
+        if currentui == "discord":
+            answer = self.membase["classes"]["Watcher"].execute("Discord", "question", {"question": questionlist[0]})
 
 
     def responsewait(self, **args):
@@ -343,7 +302,7 @@ class Database:
         x = 2
         while True: # loop because it might be called from a different class, by the right one
             callerclass, callerfunc = self.caller_name(x)
-            if callerclass.lower() in self.membase["ui-interfaces"].keys():
+            if callerclass.lower() in self.membase["ui-interfaces"]["support"].keys():
                 break
             else:
                 x += 1
