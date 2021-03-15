@@ -315,3 +315,18 @@ class Database:
         with open(fileloc) as f:
             data = json.loads(f.read())
         return data
+
+    def findcapability(self, capability):
+        # get all connections
+        # go through capabilities
+        # find first one
+        # TODO: if multiple, allow for selection/preference
+        precontable = self.gettable("connections")
+        if not precontable["successful"]:
+            return {"successful": False, "resource":"Table not found", "status":404}
+        else:
+            contable = precontable["resource"]
+        for id in contable:
+            capabilities = contable[id]["capabilities"]
+            if capability in capabilities:
+                return {"successful": True, "resource":id, "status":200}
