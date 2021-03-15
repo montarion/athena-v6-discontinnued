@@ -1,3 +1,4 @@
+
 from ast import literal_eval as eval
 from components.logger import Logger
 import json, traceback, inspect, shortuuid, random
@@ -215,15 +216,19 @@ class Database:
                         except:
                             pass
         """
+        self.logger(table)
+        self.logger(fulldata.keys())
         try:
             table = fulldata[table]
             res = {"status": 200, "resource": table, "successful": True}
         except KeyError:
+            self.logger("Couldn't create table, trying to create.")
             try: #create it
-                table = {}
                 fulldata[table] = {}
+                self.logger("Creation successful")
                 res = {"status": 200, "resource": table, "successful": True}
-            except:
+            except Exception as e:
+                self.logger(f"Creation failed. Reason:\n{e}")
                 res = {"status": 404, "resource": f"table: \"{table}\" not found", "successful": False}
         #self.logger(res, "debug", "yellow")
         return res
