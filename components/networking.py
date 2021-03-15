@@ -35,18 +35,18 @@ class Networking:
                     break
 
     def createid(self): 
-        table = self.db.gettable("users") 
-        if table["status"] == 200:
+        table = self.db.gettable("connections") 
+        if table["successful"]:
             curid = len(table)
             newid = curid + 1
-            return int(newid)
+            return {"successful": True, "resource":int(newid)}
         else:
-            return table
+            return {"status": 500, "successful": False}
 
-    def findtarget(query):
+    def findtarget(self, query):
         idlist = []
         self.logger(f"searching for {query}", "debug")
-        res = self.db.gettable("users")
+        res = self.db.gettable("connections")
         for key in res["resource"]:
             dic = res["resource"]
             for user in dic:
@@ -154,11 +154,17 @@ class Networking:
                         self.logger(f"already has id: {id}")
                     else:
                         #create new id
-                        id = self.createid()
-                    self.db.membase[id] = {"socket": websocket}
-                    self.db.write(id, {"id":id, "name": name, "capabilities": capabilities}, "users")
-                    returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "data":{"id":id}})
-                    await self.send(returnmsg, [id])
+                        preid = self.createid()
+                        if preid["successful"]:
+                            id = preid["resource"]
+                            self.logger(id)
+                            self.db.membase[id] = {"socket": websocket}
+                            self.db.write(id, {"id":id, "name": name, "capabilities": capabilities}, "connections")
+                            returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "data":{"id":id}, "metadata":{"successful":True}})
+                            await self.send(returnmsg, [id])
+                        else:
+                            returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "metadata":{"successful": False}})
+                            await websocket.send(returnmsg)
 
             if category == "test":
                 self.logger("got test message", "debug", "yellow")
@@ -170,7 +176,7 @@ class Networking:
                     self.logger(id)
                     name = "website"
                     self.db.membase[id] = {"socket": websocket}
-                    self.db.write(id, {"id":id, "name": name}, "users")
+                    self.db.write(id, {"id":id, "name": name}, "connections")
                     data = {"id": id}
                     returnmsg = self.messagebuilder("admin", "signinresponse", data, metadata)
                     await websocket.send(returnmsg)
