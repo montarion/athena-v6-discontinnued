@@ -277,7 +277,7 @@ class Anime:
     def listepisodes(self, showname):
         storeloc = self.dbobj.query("storelocation", "anime")["resource"]
         path = os.path.join(storeloc, showname)
-        files = os.listdir(path)
+        files = sorted(os.listdir(path))
         return {"successful": True, "resource":files}
 
     def compress(self, showname, episode):
