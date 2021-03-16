@@ -274,6 +274,19 @@ class Anime:
         result ={"status": 200}
         return result
 
+    def listepisodes(self, showname):
+        storeloc = self.dbobj.query("storelocation", "anime")["resource"]
+        path = os.path.join(storeloc, showname)
+        files = os.listdir(path)
+        return path
+
+    def compress(self, showname, episode):
+        storeloc = self.dbobj.query("storelocation", "anime")["resource"]
+        path = os.path.join(storeloc, showname)
+        self.logger(f"absolute path: {path}")
+        # run agents/compression.Compression().compressfile()
+        return "RAN COMPRESSION"
+
     def startrun(self, number = 1):
         self.logger = Logger("Anime").logger
         # add actual class to membase
