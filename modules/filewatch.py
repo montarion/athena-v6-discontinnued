@@ -4,7 +4,8 @@ from time import sleep
 class Filewatch:
     def __init__(self, Database=None):
         self.dependencies = {"tier":"user", "dependencies":["Database"]}
-        self.capabilities = ["blocking"]
+        self.characteristics= ["blocking"]
+        self.capabilities = ["filewatch"]
 
         #self.timing = {"foo":"bar"} # sadly necessary for discovery process
 

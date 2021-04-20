@@ -5,9 +5,11 @@ from datetime import timedelta
 from time import time
 
 class Monitor:
+    """System monitoring"""
     def __init__(self, Database=None):
         self.dependencies = {"tier":"user", "dependencies":["Database"]}
-        self.capabilities = []
+        self.characteristics= ["timed"]
+        self.capabilities = ["system monitoring", "storage", "memory", "network"]
         self.timing = {"unit": "minutes", "count":10}
         self.db = Database
         # do not add init stuff

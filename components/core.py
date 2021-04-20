@@ -77,7 +77,7 @@ class Core:
             # TODO: use tier to seperate dependency loading into tiers, to mitigate intermodule dependency errors
             #self.logger(self.moduledict[item])
             dependencies = self.moduledict[item]["attr"]["dependencies"]["dependencies"]
-            capabilities = self.moduledict[item]["attr"]["capabilities"]
+            characteristics = self.moduledict[item]["attr"]["characteristics"]
             #self.logger(f"DEPENDENCIES: {dependencies}")
             coremodules = ["Networking", "Database", "Watcher", "Helper"]
             failedlist = [x for x in dependencies if x not in coremodules and x not in list(self.moduledict.keys())]
@@ -168,6 +168,7 @@ class Core:
             name = module
             dependencies = {str(x):getattr(self.thismod, str(x)) for x in self.moduledict[module]["attr"]["dependencies"]["dependencies"]}
             #self.logger(f"Dependencies: {dependencies}", "debug", "blue")
+            characteristics = self.moduledict[module]["attr"]["characteristics"]
             capabilities = self.moduledict[module]["attr"]["capabilities"]
             classobj = self.moduledict[module]["classobj"]
             task = ""
@@ -175,7 +176,7 @@ class Core:
             if "ui" in capabilities:
                 #finalclassobj = classobj(**dependencies)
                 uiinterfaces[module]= {"class": finalclassobj}
-            if "blocking" in capabilities:
+            if "blocking" in characteristics:
                 # use threaded
                 #finalclassobj = classobj(**dependencies)
                 taskobj = getattr(finalclassobj, "startrun") # running the actual function

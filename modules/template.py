@@ -3,7 +3,9 @@ from components.logger import Logger
 class Template:
     def __init__(self, Networking=None):
         self.dependencies = {"tier":"user", "dependencies":["Networking"]}
-        self.capabilities = []
+        self.characteristics= ["timed", "async"]
+        self.capabilities = ["weather", "forecast"]
+
         self.timing = {"unit": "minutes", "count":10}
         # do not add init stuff
 

@@ -26,7 +26,9 @@ class User(UserMixin):
 class Website:
     def __init__(self, Networking=None, Watcher=None, Database=None):
         self.dependencies = {"tier": "user", "dependencies":["Networking", "Watcher", "Database"]}
-        self.capabilities = ["ui", "input", "blocking", "question"]
+        self.characteristics= ["blocking"]
+        self.capabilities = ["website", "ui", "input", "question"]
+
         #self.timing = {"unit": "minutes", "count":2}
         self.networking = Networking
         self.watcher = Watcher
@@ -172,7 +174,7 @@ class Website:
             if filename.split(".")[-1] in ["css"]:
                 finpath = safe_join(tmppath, filename)
                 self.logger(tmppath)
-                return send_from_directory(tmppath, filename, mimetype = "text/stylesheet")
+                return send_from_directory(tmppath, filename, mimetype = "text/css")
             if filename.split(".")[-1] == "js":
                 return send_from_directory(tmppath, filename, mimetype = "text/javascript")
             else:

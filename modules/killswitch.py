@@ -3,7 +3,8 @@ import re, datetime
 class Killswitch:
     def __init__(self, Networking=None):
         self.dependencies = {"tier":"user", "dependencies":["Networking"]}
-        self.capabilities = []
+        self.characteristics= ["timed"]
+        self.capabilities = ["killswitch"]
         self.timing = {"unit": "minutes", "count":10}
         self.shortest = 5 # shortest amount of inactivity before doing something
         self.rangedict = {str(list(range(5,9))): "one", str(list(range(9, 19))): "two", str(list(range(19, 25))): "three"}

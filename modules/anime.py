@@ -5,7 +5,8 @@ from components.logger import Logger
 class Anime:
     def __init__(self, Networking=None, Watcher=None, Database=None):
         self.dependencies = {"tier": "user", "dependencies":["Networking", "Watcher", "Database"]}
-        self.capabilities = ["timed"]
+        self.characteristics = ["timed"]
+        self.capabilities = ["anime"]
         self.timing = {"unit": "minutes", "count":2}
         self.networking = Networking
         # geen basics
@@ -14,6 +15,7 @@ class Anime:
         self.datapath = f"data/modules/{self.__class__.__name__.lower()}"
         self.retval = None
         # other init stuff happens in startrun
+        self.publishchoice = "SubsPlease"
 
     def getshows(self, number = 1):
         base = f"https://nyaa.si/?page=rss&q={self.publishchoice}+%2B+(1080p)&c=1_2&f=2"
@@ -222,7 +224,7 @@ class Anime:
         base = f"https://nyaa.si/?page=rss&q={self.publishchoice}+%2B+(1080p)+{showname.replace(' ','%20')}&c=1_2&f=2"
         feed = feedparser.parse(base)
         entries = feed.entries
-        entries.reverse()
+        #entries.reverse()
         sessiondict = {}
         number = 75 #nyaa.si max
         x = 0
@@ -285,7 +287,7 @@ class Anime:
         path = os.path.join(storeloc, showname)
         self.logger(f"absolute path: {path}")
         # run agents/compression.Compression().compressfile()
-        return "RAN COMPRESSION"
+        return {"successful": True, "resource": "RAN COMPRESSION"}
 
     def startrun(self, number = 1):
         self.logger = Logger("Anime").logger

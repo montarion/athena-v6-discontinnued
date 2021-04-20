@@ -4,7 +4,8 @@ import requests, re, os, json, traceback, time
 class Weather:
     def __init__(self, Database=None, Watcher=None):
         self.dependencies = {"tier":"standalone", "dependencies":["Database", "Watcher"]}
-        self.capabilities = ["timed", "async"]
+        self.characteristics= ["timed", "async"]
+        self.capabilities = ["weather", "forecast"]
         self.timing = {"unit": "minutes", "count":10}
         self.datapath = f"data/modules/{self.__class__.__name__.lower()}"
         self.db = Database
@@ -63,12 +64,12 @@ class Weather:
 
             # next x(3) hours
             hourdict = self.parsehourly(res["hourly"], 3)
-            self.db.write("hourforecast", hourdict, "weather")
+            self.db.write("hourforecast", hourdict, "weather", update=False) # replace, don't add.
             weatherdict["hours"] = hourdict
 
             # tomorrow
             tomorrowdict = self.parsetomorrow(res["daily"])
-            self.db.write("tomorrowforecast", tomorrowdict, "weather")
+            self.db.write("tomorrowforecast", tomorrowdict, "weather", update=False)
             weatherdict["tomorrow"] = tomorrowdict
 
             # publish it

@@ -1,7 +1,7 @@
 from components.logger import Logger
 
 import discord
-import re, asyncio, os
+import re, asyncio, os, json
 from time import time, sleep
 from datetime import timedelta
 from ast import literal_eval
@@ -11,7 +11,9 @@ from fuzzywuzzy import process
 class Discord:
     def __init__(self, Database=None, Watcher=None):
         self.dependencies = {"tier":"user", "dependencies":["Database", "Watcher"]}
-        self.capabilities = ["ui","input", "output", "blocking", "question"]
+        #self.capabilities = ["ui","input", "output", "blocking", "question"]
+        self.characteristics= ["blocking"]
+        self.capabilities = ["discord", "ui", "input", "output", "question"]
         self.db = Database
         self.watcher = Watcher
         #self.timing = {"unit": "minutes", "count":10}
@@ -321,7 +323,7 @@ class Routines:
             else:
                 await message.channel.send(f"That is not a valid option. Valid commands are:\n{commands}")
         curcom = metadata[msg] # current command
-        self.logger(curcom["type"], "debug")
+        #self.logger(curcom["type"], "debug")
         if curcom["type"] == "query":
             #res = self.db.query("lastshow", "anime")["resource"]
             # check for query
@@ -353,8 +355,6 @@ class Routines:
 
                 if "thumbnail" in retdict:
                     urldict = res
-                    self.logger(f"urldict: {urldict.keys()}")
-                    self.logger(retdict["thumbnail"], "debug")
                     for k in retdict["thumbnail"]:
                         urldict = urldict[k]
                     url = urldict
@@ -411,14 +411,48 @@ class Routines:
                         watcher = self.discobj.watcher
                         prefunc = getattr(watcher.getclass(routine["class"])["resource"], routine["function"])
                         args = [routinedict[x] for x in routine["arguments"]]
-                        result = prefunc(*args)["status"]
-                        routinedict["status"] = result
+                        returnval = routine["return"]
+                        result = prefunc(*args)[returnval]
+                        #result = result[returnval]
+                        routinedict[returnval] = result
+                if rtype == "send":
+                    if int(num) > 1:
+                        prevroutine = routines[str(int(num)-1)]
+                        returnval = prevroutine["return"]
+                    else:
+                        returnval = routine["return"]
+                    if type(routinedict[returnval]) == list:
+                        embed = discord.Embed(
+                            title = routine["title"]
+                        )
+                        for i, item in enumerate(routinedict[returnval]):
+                            embed.add_field(
+                                name=i,
+                                value=item,
+                                inline=False
+                            )
+                        sendmsg = embed
+                        try:
+                            await message.reply(embed=sendmsg)
+                        except:
+                            await message.channel.send(embed=sendmsg)
+                    else:
+                        sendmsg = routinedict[returnval]
+
+                        try:
+                            await message.reply(content=sendmsg)
+                        except:
+                            await message.channel.send(sendmsg)
+
                 if rtype == "status":
-                    if routinedict["status"] == 200:
+                    if routinedict["successful"]:
                         checkmark = "\N{WHITE HEAVY CHECK MARK}"
                         await message.add_reaction(checkmark)
                     else:
-                        await message.reply(content="failed..")
+                        try:
+                            await message.reply(content="failed..")
+                        except:
+                            await message.channel.send("failed..")
 
         else:
              await message.channel.send(f"That is not a valid option. Not that I know wtf I want..")
