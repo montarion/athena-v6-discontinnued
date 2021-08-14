@@ -56,6 +56,7 @@ class Anime:
                 animedict = self.dbobj.gettable("anime")["resource"]
                 lastshow = self.dbobj.query(["lastshow", "title"], "anime")["resource"]
                 #if animedict.get("lastshow", {"title":"show"})["title"] != show:
+                lastshow = ""
                 if lastshow != show:
                     self.download(show, link)
                     ct = int(time.time())
@@ -76,6 +77,8 @@ class Anime:
                     metadata = {"status": 200}
                     #res = self.networking.messagebuilder(category, type, data, metadata, "all")
                     self.dbobj.write("lastshow", sessiondict, "anime")
+                    msg = self.dbobj.messagebuilder(category, type, data, metadata)
+                    self.watcher.publish(self, msg)
 
 
                 x += 1

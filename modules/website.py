@@ -140,17 +140,10 @@ class Website:
         @self.app.route('/login', methods=['GET', 'POST'])
         def login():
             if request.method == 'GET':
-                return '''
-                   <form action='login' method='POST'>
-                    <input type='hidden' name='text' id='hidden'  value'1'></input>
-
-                    <input type='password' name='pw' id='pw' placeholder='password'></input>
-                    <input type='submit' name='submit'></input>
-                   </form>
-                   '''
+                return render_template("login.html")
 
             storedpasswd = self.db.query(["web-ui", "password"], "credentials")["resource"]
-            if request.form['pw'] == storedpasswd:
+            if request.form['password'] == storedpasswd:
                 user = User()
                 user.auth= True
                 user.id = 1
