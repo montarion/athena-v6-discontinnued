@@ -64,9 +64,9 @@ class Spotify:
         params = {'market': 'from_token'}
 
         response = requests.get(baseurl, headers=headers, params=params)
-        self.logger(response)                
-        self.logger(response.json())
-
+        self.logger(response, "debug")                
+        self.logger(response.json(), "debug")
+        
     def startrun(self):
         """Various methods to control spotify playback"""
         # init stuff..
