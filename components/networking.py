@@ -72,7 +72,7 @@ class Networking:
 
     async def send(self, message, targetidlist):
         loop = self.db.membase["eventloop"]
-        self.logger("Sending through regsend")
+        self.logger("Sending through send")
         uuid = shortuuid.uuid()[:4]
         self.senddict[uuid] = {}
         self.senddict[uuid]["message"] = message
@@ -82,21 +82,21 @@ class Networking:
         self.senddict = {}
         self.logger(self.senddict)
         while True:
-            #self.logger("checking...")
-            #self.logger(self.senddict)
             for k in self.senddict.keys():
-                self.logger("sending...")
+                self.logger("sending...", "alert", "green")
                 msg = self.senddict[k]["message"]
                 targetidlist = self.senddict[k]["targetidlist"]
-                returnmsg = {"success": [], "failure": []}
                 for targetid in targetidlist:
-                    socket = self.db.membase[targetid]["socket"]
-                    if type(msg) == dict:
-                        msg = json.dumps(msg)
-                    await socket.send(msg)
-                returnmsg["success"].append(targetid)
+                    socket = self.db.membase.get(targetid, None).get("socket", None)
+                    if socket:
+                        if type(msg) == dict:
+                            msg = json.dumps(msg)
+                        await socket.send(msg)
+                    else:
+                        self.logger(f"Couldn't reach {targetid}, removing.", "info", "red")
+                        del self.db.membase[targetid]
             self.senddict = {}
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0)
 
         #return returnmsg
 
@@ -158,14 +158,24 @@ class Networking:
                         if preid["successful"]:
                             id = preid["resource"]
                             self.logger(id)
-                            self.db.membase[id] = {"socket": websocket}
-                            self.db.write(id, {"id":id, "name": name, "capabilities": capabilities}, "connections")
-                            returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "data":{"id":id}, "metadata":{"successful":True}})
-                            await self.send(returnmsg, [id])
-                        else:
-                            returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "metadata":{"successful": False}})
-                            await websocket.send(returnmsg)
-
+                    try:
+                        self.db.membase[id] = {"socket": websocket}
+                        self.db.write(id, {"id":id, "name": name, "capabilities": capabilities}, "connections")
+                        returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "data":{"id":id}, "metadata":{"successful":True}})
+                        await self.send(returnmsg, [id])
+                    except:
+                        returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "metadata":{"successful": False}})
+                        await websocket.send(returnmsg)
+            if category == "subscribe":
+                if qtype == "add":
+                    sublist = data.get("subscriptions", [])
+                    self.watcher.register(sublist, 4)
+                    #regdata = {'trigger':{'class':'foo', 'returnvalue':'title'},
+                    #         'result':{'class':Bar(), 'function':'funcname', 'args':{'foo':'bar'}}
+                    #for classname in sublist:
+                    #    classobj = self.watcher.getclass(classname)["resource"]
+                    #    regdata = {"trigger":{"class": classname, "returnvalue":"title"},
+                    #              "result":{"class":
             if category == "test":
                 self.logger("got test message", "debug", "yellow")
                 if type == "web":
@@ -316,7 +326,7 @@ class Networking:
         while True: 
             #pending = asyncio.all_tasks()
             #await asyncio.create_task(asyncio.gather(*pending))
-            await asyncio.sleep(1)
+            await asyncio.sleep(0)
 
     def startserving(self):
         self.logger("starting")
@@ -339,7 +349,7 @@ class Networking:
         serveserver = websockets.server.serve(self.runserver, "0.0.0.0", 8000, ssl=ssl_context)
         
         self.loop.create_task(self.run_straglers())
-        #self.loop.run_until_complete(serveserver)
+        self.loop.run_until_complete(serveserver)
         asyncio.ensure_future(serveserver)
         self.loop.create_task(self.realsend())
         self.logger("waiting...")

@@ -111,9 +111,9 @@ class Core:
     def ontaskcomplete(self, event):
         """ returns function result on completion of scheduled task"""
         jobname = self.tasker.getjobname(event.job_id)
-        if "retval" in dir(event):
+        if "retval" in dir(event) and event.retval is not None:
             retval = event.retval
-            self.logger(f"retval: {retval}", "debug")
+            self.logger(f"retval: {retval}", "debug", "yellow")
             id = event.job_id
             try:
                 classname, funcname = self.tasker.getjobname(id)
@@ -123,27 +123,34 @@ class Core:
 
     def standard(self):
         global Networking, Watcher, Database
+        self.logger("Initializing modules")
         # init database
+        self.logger("Database")
         self.db = database()
         Database = self.db
 
-        # start networking
+        # prepare networking
+        self.logger("Prepare networking")
         Networking = nw(self.db)
-        t1 = threading.Thread(target=Networking.startserving)
-        t1.start()
 
         # init tasker
+        self.logger("Tasker")
         self.tasker = Tasks(self.db)
 
         # init helper
+        self.logger("Helper")
         self.helper = Helper()
 
-        # test
-        self.discovermodules()
+        self.logger("Done.")
 
+        # test
+        self.logger("Getting modules")
+        self.discovermodules()
+        self.logger("Done.")
 
         # start intermodule comms service
         # add core modules
+        self.logger("Adding core components")
         self.classobjdict["Networking"] = Networking
         self.classobjdict["Database"] = self.db
         self.classobjdict["Tasks"] = self.tasker
@@ -151,6 +158,7 @@ class Core:
 
         #self.logger(self.classobjdict, "alert", "blue")
         Watcher = watcher(self.db, self.classobjdict)
+        self.logger("Done.")
         self.watcher = Watcher
         # add watcher to membase
         self.classobjdict["Watcher"] = Watcher
@@ -158,9 +166,11 @@ class Core:
         # save it
         self.db.membase["classes"] = self.classobjdict
 
-        # discover modules
-        #self.discovermodules()
-        
+        # start networking
+        self.logger("Start networking")
+        t1 = threading.Thread(target=Networking.startserving)
+        t1.start()
+
         # start tasks
         uiinterfaces = {}
         taskdict = {}
@@ -206,4 +216,4 @@ class Core:
         self.tasker.addlistener(self.ontaskcomplete)
         self.logger("running!", "debug", "red")
         self.tasker.run()
-        self.tasker.getjobs()
+        #self.tasker.getjobs()

@@ -92,7 +92,10 @@ class Database:
 
 
     def query(self, query, table=None):
-        """Usage: Database().query("name", "test")"""
+        """Usage: 
+            Database().query("city", "personalia") or:
+            Database().query(["lastshow", "title"], "anime")
+        """
         # called by(test)
         #callerclass, callerfunc = self.caller_name() 
         #self.logger(f"Query requested by: {callerclass, callerfunc}", "debug", "yellow")
@@ -102,22 +105,6 @@ class Database:
         fulldata = self.getdbfile()
 
         try:
-            """
-            fulldata = ""
-            while len(fulldata) == 0:
-                with open(self.db) as f:
-                    
-                    try:
-                        fulldata = json.loads(f.read())
-                    except:
-                        for i in range(0,10):
-                            self.logger(i, "debug", "red")
-                            sleep(random.randint(70,100)/100)
-                            try:
-                                fulldata = json.loads(f.read())
-                            except:
-                                pass
-            """
             data = fulldata[table]
             if type(query) == str:
                 query = [query]
@@ -216,19 +203,17 @@ class Database:
                         except:
                             pass
         """
-        self.logger(table)
-        self.logger(fulldata.keys())
         try:
             table = fulldata[table]
             res = {"status": 200, "resource": table, "successful": True}
         except KeyError:
-            self.logger("Couldn't create table, trying to create.")
+            self.logger("Couldn't create table, trying to create.", "debug")
             try: #create it
                 fulldata[table] = {}
-                self.logger("Creation successful")
+                self.logger("Creation successful", "debug")
                 res = {"status": 200, "resource": table, "successful": True}
             except Exception as e:
-                self.logger(f"Creation failed. Reason:\n{e}")
+                self.logger(f"Creation failed. Reason:\n{e}", "alert")
                 res = {"status": 404, "resource": f"table: \"{table}\" not found", "successful": False}
         #self.logger(res, "debug", "yellow")
         return res
@@ -316,17 +301,20 @@ class Database:
             data = json.loads(f.read())
         return data
 
-    def findcapability(self, capability):
-        # get all connections
-        # go through capabilities
-        # find first one
-        # TODO: if multiple, allow for selection/preference
-        precontable = self.gettable("connections")
-        if not precontable["successful"]:
-            return {"successful": False, "resource":"Table not found", "status":404}
-        else:
-            contable = precontable["resource"]
-        for id in contable:
-            capabilities = contable[id]["capabilities"]
-            if capability in capabilities:
-                return {"successful": True, "resource":id, "status":200}
+    def findtarget(self, query):
+        idlist = []
+        self.logger(f"searching for {query}", "debug")
+        res = self.gettable("connections")
+        for key in res["resource"]:
+            dic = res["resource"]
+            for user in dic:
+                userdata = dic[user]
+                for val in userdata.values():
+                    if type(val) == int  or type(query) == int:
+                        searchres = query == val
+                    else:
+                        searchres = query in val
+                    if searchres:
+                        idlist.append(dic[key]["id"])
+
+        return {"successful": True, "resource": idlist, "status":200}

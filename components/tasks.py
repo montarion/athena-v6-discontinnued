@@ -1,7 +1,7 @@
 import json, threading
 
 import apscheduler
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+#from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger as trigger
 from apscheduler import events
@@ -24,8 +24,7 @@ class Tasks:
         #task = getattr(schedule.every(count), unit).do(functarget).tag(tag)
         kwargs = {unit: count}
         self.funclist.append(functarget)
-        task = self.schedule.add_job(functarget, trigger(**kwargs))
-        self.logger(f"added task: {task}")
+        task = self.schedule.add_job(functarget, trigger(**kwargs), misfire_grace_time=None)
         return task
 
     def createthreadedtask(self, functarget, argdict={}):
@@ -75,5 +74,6 @@ class Tasks:
             classname, funcname = name.split(".")
             return classname, funcname
         return 404, 404
+
     def addlistener(self, function):
         self.schedule.add_listener(function, mask=4096)
