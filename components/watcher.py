@@ -1,12 +1,13 @@
-import redis, json, threading, inspect
+import json, threading, inspect
 from components.logger import Logger
 from time import sleep
+from pubsub import pub
 
 class Watcher:
     def __init__(self, Database, classobjdict):
         self.logger = Logger("Watcher").logger
         self.r = redis.Redis(host='localhost', port=6379, db=0)
-        self.p = self.r.pubsub(ignore_subscribe_messages=False)
+        self.p = self.r.pubsub(ignore_subscribe_messages=True)
         self.dbobj = Database
         self.logger(self.dbobj)
         self.classobjdict = classobjdict
@@ -16,6 +17,7 @@ class Watcher:
         self.subscriptions = []
         self.classdict = {}
         self.funcdict = {}
+        self.senddict = {}
         self.triggerdict = {}
 
     def startlisten(self):
@@ -28,11 +30,12 @@ class Watcher:
         else:
             self.logger("no subscriptions yet")
 
-    def listen(self):
+    def listen_old(self):
+        self.logger("Listening for published messages..", "alert", "blue")
         while True:
             msg = self.p.get_message()
             if msg:
-                #self.logger(msg)
+                self.logger(msg, "alert" , "blue")
                 channel = msg["channel"].decode()
                 data = msg["data"].decode()
                 try:
@@ -41,6 +44,14 @@ class Watcher:
                     self.logger(e)
                 self.logger(f"Got message for: {channel}")
                 self.logger(f"Message: {data}")
+                
+                if channel in self.senddict.keys():
+                    targetlist = self.senddict[channel]
+                    nw = self.getclass("Networking")["resource"]
+                    nw.regsend(data, targetlist)
+
+            
+                """ 
                 if channel in self.funcdict.keys():
                     channeldict = self.funcdict[channel]
                     trigger = channeldict["trigger"].get("returnvalue", None)
@@ -70,6 +81,10 @@ class Watcher:
                     if self.trigfound:
                         t = getattr(exec_class, exec_func)(**argdict)
                         self.trigfound = False
+                if channel in self.senddict.keys(): # just subsend
+                    
+                    pass
+                """
             if self.listenstop:
                 self.logger("Stopped listening for published messages.", "debug", "yellow")
                 break
@@ -103,7 +118,62 @@ class Watcher:
             else:
                 res = getattr(classobj, funcname)(**args)
                 return res
-    def register(self, regdata):
+
+
+
+
+    def listen(self, data):
+        self.logger(data, "alert" , "blue")
+        channel = data["channel"]
+        data = data["data"]
+        self.logger(f"Got message for: {channel}")
+        self.logger(f"Message: {data}")
+
+        if channel in self.senddict.keys():
+            targetlist = self.senddict[channel]
+            nw = self.getclass("Networking")["resource"]
+            nw.regsend(data, targetlist)
+
+    def register(self, sublist, target, listener=None):
+        if not listener:
+            listener = self.listen
+        for channel in sublist:
+            if channel not in self.senddict:
+                self.senddict[channel] = []
+            self.senddict[channel].append(target)
+        
+            pub.subscribe(listener, channel)
+
+    def publish(self, channel, data:dict):
+        """
+            Allows every class to publish without importing pubsub.
+            Usage: Watcher().publish(Foo() / "Foo", {"bar": "argumentcontent"}
+            Note: using the class so that you can pass "self" from within the module.
+                if using a string
+        """
+
+        if type(channel) != str: # convert to string if class was used
+            channel = channel.__class__.__name__
+
+        realdata = {}
+        realdata["channel"] = channel
+        realdata["data"] = data
+        pub.sendMessage(channel, data=realdata)
+
+    def subsend_old(self, sublist, target):
+        """sends message from all the channels in sublist to target"""
+        self.logger(sublist)
+        for sub in sublist:
+            self.subscriptions.append(sub)
+            if sub not in self.senddict:
+                self.senddict[sub] = []
+            self.senddict[sub].append(target)
+        self.startlisten()
+        #nw = self.getclass("Networking") 
+        #nw.send(
+
+
+    def register_old(self, regdata):
         """
             Registers function to be ran when a specific other function is run/published
             Usage: regdata = {'trigger':{'class':'foo', 'returnvalue':'title'}, 
@@ -127,7 +197,7 @@ class Watcher:
 
         self.startlisten()
 
-    def publish(self, classinstance, data):
+    def publish_old(self, classinstance, data):
         """
             Allows every class to publish without importing redis.
             Usage: Watcher().publish(Foo() / "Foo", {"bar": "argumentcontent"}
@@ -138,7 +208,7 @@ class Watcher:
             name = classinstance.__class__.__name__
         else:
             name = classinstance
-        #self.logger(name)
+        self.logger(name)
         if type(data) == dict:
             data = json.dumps(data)
         self.r.publish(name, data)
