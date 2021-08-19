@@ -8,7 +8,6 @@ from apscheduler import events
 from time import sleep
 from components.logger import Logger
 from datetime import datetime
-#from components.database import Database
 
 
 class Tasks:
@@ -17,19 +16,20 @@ class Tasks:
         self.db = Database
         #self.schedule = AsyncIOScheduler() 
         self.schedule = BackgroundScheduler()
-        self.funclist = []
+        self.threadlist = []
         self.uilist = []
 
     def createtask(self, functarget, count, unit, tag="user task"):
         #task = getattr(schedule.every(count), unit).do(functarget).tag(tag)
         kwargs = {unit: count}
-        self.funclist.append(functarget)
-        task = self.schedule.add_job(functarget, trigger(**kwargs), misfire_grace_time=None)
+        #self.logger(f"scheduled task {functarget} to run every {count} {unit}", "debug")
+        task = self.schedule.add_job(functarget, trigger(**kwargs), jitter=10, misfire_grace_time=None)
         return task
 
     def createthreadedtask(self, functarget, argdict={}):
         task = threading.Thread(target=functarget, kwargs=argdict)
-        task = self.schedule.add_job(task.start)
+        #task = self.schedule.add_job(task.start)
+        self.threadlist.append(task)
         return task
 
     def pause(self, target):
@@ -52,8 +52,8 @@ class Tasks:
 
     def run(self):
         self.logger("running everything")
-        for func in self.funclist:
-            self.schedule.add_job(func)
+        for task in self.threadlist:
+            task.start()
 
         self.schedule.start()
 

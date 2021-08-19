@@ -176,6 +176,7 @@ class Core:
         taskdict = {}
         for module in self.moduledict:
             name = module
+            self.logger(f"Scheduling module: {name}", "debug")
             dependencies = {str(x):getattr(self.thismod, str(x)) for x in self.moduledict[module]["attr"]["dependencies"]["dependencies"]}
             #self.logger(f"Dependencies: {dependencies}", "debug", "blue")
             characteristics = self.moduledict[module]["attr"]["characteristics"]
@@ -187,6 +188,7 @@ class Core:
                 #finalclassobj = classobj(**dependencies)
                 uiinterfaces[module]= {"class": finalclassobj}
             if "blocking" in characteristics:
+                self.logger("scheduling module as threaded.")
                 # use threaded
                 #finalclassobj = classobj(**dependencies)
                 taskobj = getattr(finalclassobj, "startrun") # running the actual function
@@ -206,14 +208,17 @@ class Core:
             #self.logger(f"Taskdict: {taskdict}", "debug", "blue")
             # save initialized class object
             self.classobjdict[name] = finalclassobj
+            self.logger(f"Done with {name}")
 
         self.db.membase["classes"] = self.classobjdict
         uiinterfaces = self.findmodulesperui(uiinterfaces)
+        self.logger(f"Supported ui interfaces: {uiinterfaces}", "debug")
         self.db.membase["ui-interfaces"] = {}
         self.db.membase["ui-interfaces"]["support"] = uiinterfaces
         
         self.db.membase["taskdict"] = taskdict
+        self.logger("Adding onTaskCompleteListener.")
         self.tasker.addlistener(self.ontaskcomplete)
+        self.logger("Task complete")
         self.logger("running!", "debug", "red")
         self.tasker.run()
-        #self.tasker.getjobs()

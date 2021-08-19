@@ -326,10 +326,9 @@ class Networking:
         while True: 
             #pending = asyncio.all_tasks()
             #await asyncio.create_task(asyncio.gather(*pending))
-            await asyncio.sleep(0)
+            await asyncio.sleep(1)
 
     def startserving(self):
-        self.logger("starting")
         tracemalloc.start()
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
@@ -349,9 +348,9 @@ class Networking:
         serveserver = websockets.server.serve(self.runserver, "0.0.0.0", 8000, ssl=ssl_context)
         
         self.loop.create_task(self.run_straglers())
-        self.loop.run_until_complete(serveserver)
+        #self.loop.run_until_complete(serveserver)
         asyncio.ensure_future(serveserver)
         self.loop.create_task(self.realsend())
-        self.logger("waiting...")
         self.loop.run_forever()
+        self.logger("Waiting for connections..")
         #TODO: FIX - THE WHILE LOOP INSIDE DATABASE().GETFROMUSER BLOCKS EVERYTHING. FIX. 
