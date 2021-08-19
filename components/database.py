@@ -121,7 +121,7 @@ class Database:
                         pass
             #self.logger(f"result: {result} - {type(result)}", "debug", "red")
 
-            msg = {"status": "200", "resource":result, "successful": True}
+            msg = {"status": "200", "resource":result, "success": True}
             return msg
         except KeyError as e:
             """
@@ -149,7 +149,7 @@ class Database:
                 res = {"status": "404", "resource": f"Query: \"{query}\" not found"}
             return res
             """
-            res = {"status": "404", "resource": f"Query: \"{query}\" not found", "successful": False}
+            res = {"status": "404", "resource": f"Query: \"{query}\" not found", "success": False}
             return res
     def remove(self, query, table=None):
         """NOT IMPLEMENTED"""
@@ -205,28 +205,28 @@ class Database:
         """
         try:
             table = fulldata[table]
-            res = {"status": 200, "resource": table, "successful": True}
+            res = {"status": 200, "resource": table, "success": True}
         except KeyError:
             self.logger("Couldn't create table, trying to create.", "debug")
             try: #create it
                 fulldata[table] = {}
                 self.logger("Creation successful", "debug")
-                res = {"status": 200, "resource": table, "successful": True}
+                res = {"status": 200, "resource": table, "success": True}
             except Exception as e:
                 self.logger(f"Creation failed. Reason:\n{e}", "alert")
-                res = {"status": 404, "resource": f"table: \"{table}\" not found", "successful": False}
+                res = {"status": 404, "resource": f"table: \"{table}\" not found", "success": False}
         #self.logger(res, "debug", "yellow")
         return res
 
     def gettables(self):
         fulldata = self.getdbfile()
         tables = list(fulldata.keys())
-        res = {"status": 200, "resource": tables, "successful": True}
+        res = {"status": 200, "resource": tables, "success": True}
         return res
 
     def geteditable(self):
         tables = self.getdbfile(True)
-        res = {"status": 200, "resource": tables, "successful": True}
+        res = {"status": 200, "resource": tables, "success": True}
         return res
 
     def getfromuser(self, questionlist):
@@ -243,7 +243,7 @@ class Database:
         # choose the best ui
         # hardcoded to website for now
         currentui = self.query("current_ui", "system")
-        if not currentui["successful"]:
+        if not currentui["success"]:
             currentui = self.query("primary_ui", "system")
         self.logger(currentui)
         currentui = currentui["resource"]
@@ -317,4 +317,4 @@ class Database:
                     if searchres:
                         idlist.append(dic[key]["id"])
 
-        return {"successful": True, "resource": idlist, "status":200}
+        return {"success": True, "resource": idlist, "status":200}
