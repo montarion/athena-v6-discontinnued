@@ -11,6 +11,7 @@ class Spotify:
         self.oauth = Oauth
         self.watcher = Watcher
         self.logger = Logger("Spotify").logger
+        self.currentsong = ""
         # do not add init stuff
 
     def dostuff(self):
@@ -54,8 +55,13 @@ class Spotify:
             duration = item["duration_ms"]
             progress = playdata["progress_ms"]
             artists = [x["name"] for x in playdata["item"]["artists"]]
-            data = {"playing":True, "song": name, "artist": artists, "Progress":progress, "duration":duration}
-            self.logger(data)
+            playing = bool(playdata["is_playing"])
+            #self.logger(playdata)
+            if name != self.currentsong:
+                self.currentsong = name
+                data = {"playing":playing, "song": name, "artist": artists, "Progress":progress, "duration":duration}
+                self.logger(data)
+            
             msg = self.db.messagebuilder("Spotify", "update", data)
             self.watcher.publish(self, msg)
         else:
@@ -70,6 +76,6 @@ class Spotify:
         # init stuff..
         self.logger = Logger("Spotify").logger
         self.datapath = f"data/modules/{self.__class__.__name__.lower()}"
-        self.watcher = self.db.membase["classes"]["Watcher"]
-        self.dostuff()
+        #self.dostuff()
+        self.getplaying()
         data = {"foo":"bar"}

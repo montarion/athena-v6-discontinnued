@@ -36,12 +36,12 @@ class Networking:
 
     def createid(self): 
         table = self.db.gettable("connections") 
-        if table["successful"]:
+        if table["success"]:
             curid = len(table)
             newid = curid + 1
-            return {"successful": True, "resource":int(newid)}
+            return {"success": True, "resource":int(newid)}
         else:
-            return {"status": 500, "successful": False}
+            return {"status": 500, "success": False}
 
     def findtarget(self, query):
         idlist = []
@@ -155,16 +155,16 @@ class Networking:
                     else:
                         #create new id
                         preid = self.createid()
-                        if preid["successful"]:
+                        if preid["success"]:
                             id = preid["resource"]
                             self.logger(id)
                     try:
                         self.db.membase[id] = {"socket": websocket}
                         self.db.write(id, {"id":id, "name": name, "capabilities": capabilities}, "connections")
-                        returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "data":{"id":id}, "metadata":{"successful":True}})
+                        returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "data":{"id":id}, "metadata":{"success":True}})
                         await self.send(returnmsg, [id])
                     except:
-                        returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "metadata":{"successful": False}})
+                        returnmsg = json.dumps({"category":"admin", "type":"signinresponse", "metadata":{"success": False}})
                         await websocket.send(returnmsg)
             if category == "subscribe":
                 if qtype == "add":
