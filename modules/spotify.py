@@ -2,13 +2,14 @@ from components.logger import Logger
 import requests
 
 class Spotify:
-    def __init__(self, Database=None, Oauth=None):
-        self.dependencies = {"tier":"user", "dependencies":["Database", "Oauth"]}
+    def __init__(self, Database=None, Oauth=None, Watcher=None):
+        self.dependencies = {"tier":"user", "dependencies":["Database", "Oauth", "Watcher"]}
         self.characteristics= ["timed"]
         self.capabilities = ["music", "spotify", "playback", "podcasts"]
         self.timing = {"unit": "seconds", "count":10}
         self.db = Database
         self.oauth = Oauth
+        self.watcher = Watcher
         self.logger = Logger("Spotify").logger
         # do not add init stuff
 
@@ -47,14 +48,22 @@ class Spotify:
         response = requests.get(baseurl, headers=headers, params=params)
         data = {}
         if len(response.content) > 1:
-            self.logger(response.json(), "debug")
             playdata = response.json()
             item = playdata["item"]
             name = item["name"]
             duration = item["duration_ms"]
             progress = playdata["progress_ms"]
+            artists = [x["name"] for x in playdata["item"]["artists"]]
+            data = {"playing":True, "song": name, "artist": artists, "Progress":progress, "duration":duration}
+            self.logger(data)
+            msg = self.db.messagebuilder("Spotify", "update", data)
+            self.watcher.publish(self, msg)
         else:
             self.logger("nothing is playing")
+            data = {"playing":False}
+            msg = self.db.messagebuilder("Spotify", "update", data)
+            self.watcher.publish(self, msg)
+
         
     def startrun(self):
         """Various methods to control spotify playback"""
