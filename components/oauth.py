@@ -41,7 +41,7 @@ class Oauth:
 
         r = requests.get(auth_url, params=params)
         loginurl = r.url
-        self.logger(loginurl)
+        self.logger(f"Please follow this link and login to your account.\n{loginurl}")
         self.hostserver()
         token = self.res
         return token
@@ -95,19 +95,21 @@ class Oauth:
 
         refresh_url = self.db.query([caller, "refresh_url"], "oauth")["resource"]
         data = {
-            'client_id': client_secret,
+            'client_id': client_id,
             'client_secret': client_secret,
             'grant_type': 'refresh_token',
             'refresh_token': refresh_token
         }
+        
         headers = {
-            "Authorization": "Basic"
+            "Authorization": f"Basic"
         }
-        r = requests.post(refresh_url, data=data, headers=headers)
+        r = requests.post(refresh_url, data=data)
         res = r.json()
-
         extime = int(res["expires_in"]) + int(time.time())
-        writedata = {"access_token": res["access_token"], "refresh_token":res["refresh_token"], "expires_on": extime}
+        writedata = {"access_token": res["access_token"],"expires_on": extime}
+        if "refresh_token" in res:
+            writedata["refresh_token"] = res["refresh_token"]
         self.db.write(caller, writedata, "oauth")
         return res["access_token"]
 
