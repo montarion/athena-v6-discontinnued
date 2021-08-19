@@ -2,12 +2,13 @@ from components.logger import Logger
 import requests
 
 class Spotify:
-    def __init__(self, Database=None):
-        self.dependencies = {"tier":"user", "dependencies":["Database"]}
+    def __init__(self, Database=None, Oauth=None):
+        self.dependencies = {"tier":"user", "dependencies":["Database", "Oauth"]}
         self.characteristics= ["timed"]
         self.capabilities = ["music", "spotify", "playback", "podcasts"]
         self.timing = {"unit": "seconds", "count":10}
         self.db = Database
+        self.oauth = Oauth
         self.logger = Logger("Spotify").logger
         # do not add init stuff
 
@@ -32,18 +33,23 @@ class Spotify:
         # TODO: Use it to write out the response
         return response
 
-    def getauthorized(self):
+    def oldgetauthorized(self):
         # let user login
         baseurl = "https://accounts.spotify.com/authorize"
         scopes = ["user-read-currently-playing", "user-modify-playback-state", "user-library-modify"]
+        client_id = self.db.query(["spotify", "client_id"], "credentials")["resource"]
         params= {
-                "client_id": self.db.query(["spotify", "client_id"], "credentials"), # TODO: guide the user to get their own
+                "client_id":client_id, # TODO: guide the user to get their own
                 "response_type": "code",
-                "redirect_uri": "https://github.com/montarion/athena",
+                #"redirect_uri": "https://github.com/montarion/athena",
                 "scope": ' '.join(scopes)
                 }
-        r = requests.get(basurl, params=params)
-        loginurl = r.url
+        #r = requests.get(baseurl, params=params)
+        auth_code = self.oauth.getauthorized(baseurl, params)
+        return auth_code
+        #loginurl = r.url
+        #self.logger(loginurl)
+        
         # Figure out how you want to do setup stuff. (just use the desktop client for now!)
         # write an OAUTH support class(nonspecific, so it works with all oauth stuff)
 
@@ -53,19 +59,40 @@ class Spotify:
         token = self.db.query(["spotify", "auth_token"], "credentials")
         return {"token": token, "success": True}
 
+    def oldgetaccess(self):
+        # check if accesstoken
+        
+        baseurl = "https://accounts.spotify.com/api/token"
+        
+        # if not accesstoken
+        auth_code = self.getauthorized()
+        #auth_code = "AQCyFSpjHrniBnyQBHwng-2gDUMVKNYhKm3jKTW6pQ63HBQ9sJrrExIZ3AS-mkoXmw4SGYn2Wc3WB_oPFIkZXVU7sXIQvNeKOMILrBIqen4lpTti8__sB9qSbaSiM_z-EN9_TPnNe0u1fScm5hex9YlCIcsCZqQVs8KSoZsHqaMdwjRopqfi27Y1OTQmDcZqUumoKhX-ENVaa3GpFhpVyTN2HNnq_vwFWmCbH0Nx-j7GNTA29zKQwDcPuMmammnPodnJ6FNW7cGDEHpv1t3mQ5gtl9y8"
+        client_id = self.db.query(["spotify", "client_id"], "credentials")["resource"]
+        client_secret = self.db.query(["spotify", "client_secret"], "credentials")["resource"]
+        return self.oauth.getaccesstoken(baseurl, auth_code, client_id, client_secret)
+
     def getplaying(self):
+        ac = self.oauth.getaccesstoken()
         baseurl = "https://api.spotify.com/v1/me/player/currently-playing"
         headers = {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'Authorization': f"Bearer {self.authorize()['token']}"
+            'Authorization': f"Bearer {ac}"
         }
 
         params = {'market': 'from_token'}
 
         response = requests.get(baseurl, headers=headers, params=params)
-        self.logger(response, "debug")                
-        self.logger(response.json(), "debug")
+        data = {}
+        if len(response.content) > 1:
+            self.logger(response.json(), "debug")
+            playdata = response.json()
+            item = playdata["item"]
+            name = item["name"]
+            duration = item["duration_ms"]
+            progress = playdata["progress_ms"]
+        else:
+            self.logger("nothing is playing")
         
     def startrun(self):
         """Various methods to control spotify playback"""

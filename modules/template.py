@@ -7,6 +7,7 @@ class Template:
         self.capabilities = ["weather", "forecast"]
 
         self.timing = {"unit": "minutes", "count":10}
+        self.logger = Logger("Template").logger
         # do not add init stuff
 
     def dostuff(self):

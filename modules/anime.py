@@ -56,7 +56,7 @@ class Anime:
                 animedict = self.dbobj.gettable("anime")["resource"]
                 lastshow = self.dbobj.query(["lastshow", "title"], "anime")["resource"]
                 #if animedict.get("lastshow", {"title":"show"})["title"] != show:
-                lastshow = ""
+
                 if lastshow != show:
                     self.download(show, link)
                     ct = int(time.time())

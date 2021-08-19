@@ -31,7 +31,7 @@ class Discord:
             ## create embed
             embed = discord.Embed(
                 title = "Startup report",
-                #description = "Currently no functions are implemented"
+                description = "Type '!help' for help."
             )
             embed.add_field(
                 name="Connections",
@@ -119,7 +119,7 @@ class Discord:
         else:
             self.waitingformsg = True
             chan = self.authordict[author]["channel"]
-            #await chan.send("Yes, I'm listening..")
+            await chan.send("Yes, I'm listening..")
             res = await self.client.wait_for("message", check=check)
             #res = res.content
             self.waitingformsg = False
