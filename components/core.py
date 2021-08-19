@@ -6,6 +6,7 @@ from components.tasks import Tasks
 from components.logger import Logger
 from components.watcher import Watcher as watcher
 from components.helper import Helper
+from components.oauth import Oauth
 from time import sleep
 
 #test
@@ -66,6 +67,7 @@ class Core:
             #print(attrdict)
             self.moduledict[name] = {"attr":attrdict, "classobj":classobj}
 
+        coremodules = [x.capitalize().split(".")[0] for x in os.listdir("components") if x.endswith(".py")]
         # check dependencies
         removelist = []
         tiereddepdict = {"user":{}, "preload":{}, "postuser":{}, "standalone":{}}
@@ -79,7 +81,7 @@ class Core:
             dependencies = self.moduledict[item]["attr"]["dependencies"]["dependencies"]
             characteristics = self.moduledict[item]["attr"]["characteristics"]
             #self.logger(f"DEPENDENCIES: {dependencies}")
-            coremodules = ["Networking", "Database", "Watcher", "Helper"]
+            #coremodules = ["Networking", "Database", "Watcher", "Helper", "Oauth"]
             failedlist = [x for x in dependencies if x not in coremodules and x not in list(self.moduledict.keys())]
             if len(failedlist) > 0: # TODO: if failelist includes agents, pass through anyway
                 self.logger(f"couldn't meet dependencies for {item}", "info", "red")
@@ -141,6 +143,10 @@ class Core:
         self.logger("Helper")
         self.helper = Helper()
 
+        # init Oauth
+        self.logger("Oauth")
+        self.oauth = Oauth()
+
         self.logger("Done.")
 
         # test
@@ -155,6 +161,7 @@ class Core:
         self.classobjdict["Database"] = self.db
         self.classobjdict["Tasks"] = self.tasker
         self.classobjdict["Helper"] = self.helper
+        self.classobjdict["Oauth"] = self.oauth
 
         #self.logger(self.classobjdict, "alert", "blue")
         Watcher = watcher(self.db, self.classobjdict)
@@ -176,7 +183,7 @@ class Core:
         taskdict = {}
         for module in self.moduledict:
             name = module
-            self.logger(f"Scheduling module: {name}", "debug")
+            #self.logger(f"Scheduling module: {name}", "debug")
             dependencies = {str(x):getattr(self.thismod, str(x)) for x in self.moduledict[module]["attr"]["dependencies"]["dependencies"]}
             #self.logger(f"Dependencies: {dependencies}", "debug", "blue")
             characteristics = self.moduledict[module]["attr"]["characteristics"]
@@ -188,7 +195,7 @@ class Core:
                 #finalclassobj = classobj(**dependencies)
                 uiinterfaces[module]= {"class": finalclassobj}
             if "blocking" in characteristics:
-                self.logger("scheduling module as threaded.")
+                #self.logger("scheduling module as threaded.")
                 # use threaded
                 #finalclassobj = classobj(**dependencies)
                 taskobj = getattr(finalclassobj, "startrun") # running the actual function
@@ -208,7 +215,7 @@ class Core:
             #self.logger(f"Taskdict: {taskdict}", "debug", "blue")
             # save initialized class object
             self.classobjdict[name] = finalclassobj
-            self.logger(f"Done with {name}")
+            #self.logger(f"Done with {name}")
 
         self.db.membase["classes"] = self.classobjdict
         uiinterfaces = self.findmodulesperui(uiinterfaces)

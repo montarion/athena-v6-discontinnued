@@ -74,8 +74,9 @@ class Database:
         if update: # in case you want to update lists
             if type(data[key]) == list:
                 data[key].append(value)
-            else:
-                data[key] = value
+            elif type(value) == dict:
+                for k,v in value.items():
+                    data[key][k] = v
         else:
             data[key] = value # add actual data
         if readonly:
