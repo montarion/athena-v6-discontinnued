@@ -6,8 +6,11 @@ from components.tasks import Tasks
 from components.logger import Logger
 from components.watcher import Watcher as watcher
 from components.helper import Helper
-from components.oauth import Oauth
+from components.oauth import Oauth as oauth
+from components.security import Security as sc
 from time import sleep
+from watchdog.observers import Observer
+from watchdog.events import PatternMatchingEventHandler
 
 #test
 Networking = ""
@@ -19,6 +22,31 @@ class Core:
         self.logger = Logger("Core").logger
         self.classobjdict = {}
         self.thismod = sys.modules[__name__] # to share networking
+
+    def filewatcher(self):
+        """to (re)load new/modified files without a server restart"""
+        evhandler = PatternMatchingEventHandler(["*.py"], None, False, False)
+
+        def on_modified(event):
+            self.logger(f"File {event.src_path} has been modified.")
+            # get the object from self.db.membase[classes][name](has classobject, taskobject, dependencies, timing, etc). simply remove task and restart with new classobject.
+            #TODO: change the discovery process so that the functions(discovermodules and the one you'll break out from standard()) can take an argument that specifies which file should be scanned. no argument means all
+
+        def on_created(event):
+            self.logger(f"File {event.src_path} has been created.")
+
+        evhandler.on_created = on_created
+        evhandler.on_modified = on_modified
+        observer = Observer()
+        observer.schedule(evhandler, "modules", recursive=True)
+        observer.start()
+
+        try:
+            while True:
+                sleep(5)
+        finally:
+            observer.stop()
+            observer.join()
 
     def discovermodules(self):
         # find modules
@@ -68,6 +96,7 @@ class Core:
             self.moduledict[name] = {"attr":attrdict, "classobj":classobj}
 
         coremodules = [x.capitalize().split(".")[0] for x in os.listdir("components") if x.endswith(".py")]
+        self.logger(f"coremodules: {coremodules}")
         # check dependencies
         removelist = []
         tiereddepdict = {"user":{}, "preload":{}, "postuser":{}, "standalone":{}}
@@ -80,8 +109,7 @@ class Core:
             #self.logger(self.moduledict[item])
             dependencies = self.moduledict[item]["attr"]["dependencies"]["dependencies"]
             characteristics = self.moduledict[item]["attr"]["characteristics"]
-            #self.logger(f"DEPENDENCIES: {dependencies}")
-            #coremodules = ["Networking", "Database", "Watcher", "Helper", "Oauth"]
+            self.logger(f"DEPENDENCIES: {dependencies}")
             failedlist = [x for x in dependencies if x not in coremodules and x not in list(self.moduledict.keys())]
             if len(failedlist) > 0: # TODO: if failelist includes agents, pass through anyway
                 self.logger(f"couldn't meet dependencies for {item}", "info", "red")
@@ -124,7 +152,7 @@ class Core:
                 pass
 
     def standard(self):
-        global Networking, Watcher, Database
+        global Networking, Watcher, Database, Oauth, Security # to fix naming conflicts when these are dependencies
         self.logger("Initializing modules")
         # init database
         self.logger("Database")
@@ -138,15 +166,20 @@ class Core:
         # init tasker
         self.logger("Tasker")
         self.tasker = Tasks(self.db)
-
         # init helper
         self.logger("Helper")
         self.helper = Helper()
 
         # init Oauth
         self.logger("Oauth")
-        self.oauth = Oauth()
+        self.oauth = oauth(self.db)
+        Oauth = self.oauth
+        self.logger("Done.")
 
+        #init Security:
+        self.logger("Security")
+        self.security = sc(self.db)
+        Security = self.security
         self.logger("Done.")
 
         # test
@@ -162,6 +195,7 @@ class Core:
         self.classobjdict["Tasks"] = self.tasker
         self.classobjdict["Helper"] = self.helper
         self.classobjdict["Oauth"] = self.oauth
+        self.classobjdict["Security"] = self.security
 
         #self.logger(self.classobjdict, "alert", "blue")
         Watcher = watcher(self.db, self.classobjdict)
@@ -203,6 +237,10 @@ class Core:
                 taskdict[module] = {}
                 taskdict[module]["taskobj"] = taskobj
                 taskdict[module]["type"] = "threaded"
+            elif "standalone"  in characteristics:
+                taskdict[module] = {}
+                taskdict[module]["obj"] = finalclassobj
+                taskdict[module]["type"] = "standalone"
             else:
                 timing = self.moduledict[module]["attr"]["timing"]
                 #finalclassobj = classobj(**dependencies)
@@ -229,3 +267,6 @@ class Core:
         self.logger("Task complete")
         self.logger("running!", "debug", "red")
         self.tasker.run()
+
+        # starting filewatch
+        self.filewatcher()

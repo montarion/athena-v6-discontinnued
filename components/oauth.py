@@ -8,21 +8,14 @@
 
 from components.logger import Logger
 import requests, time
+
 class Oauth:
-    def __init__(self,Database=None, Watcher=None):
+    def __init__(self,Database=None):
         self.logger = Logger("Oauth").logger
         self.db = Database
-        self.watcher = Watcher
-        #self.dependencies = {"tier":"user", "dependencies":["Networking"]}
-        #self.characteristics= ["standalone"]
-        #self.capabilities = ["Oauth"]
+        self.watcher_loaded = False
 
-        #self.timing = {"unit": "minutes", "count":10}
         self.res = None
-
-
-    def dostuff(self):
-        pass
 
     def getauthorized(self, caller):
         # let user login
@@ -48,6 +41,10 @@ class Oauth:
 
 
     def getaccesstoken(self):
+        #if not self.watcher_loaded:
+            #self.watcher = self.db.membase["classes"]["Watcher"]
+            #self.watcher_loaded = True
+
         caller = self.db.caller_name()[0].lower()
         self.logger(f"accesstoken requested by {caller}")
         if self.db.query([caller, "access_token"], "oauth")["success"]:
@@ -139,17 +136,3 @@ class Oauth:
 
             app.run(host='0.0.0.0', port=8000)
         return self.res
-
-    def query(self, query, connectionID = 666):
-        """connectionID is the id of who is asking(starts at 0, database is 999)
-           the query is a dict containing the following keys:
-            "category", "type", "data", "metadata"
-        """
-        category = query["category"]
-        qtype = query["type"]
-        qdata = query.get("data", None)
-        metadata = query.get("metadata", None)
-        response = {}
-        # TODO: Read out the query
-        # TODO: Use it to write out the response
-        return response

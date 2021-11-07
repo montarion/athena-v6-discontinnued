@@ -1,7 +1,6 @@
 import json, threading
 
 import apscheduler
-#from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger as trigger
 from apscheduler import events

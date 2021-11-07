@@ -23,10 +23,10 @@ class Watcher:
     def getclass(self, classname):
         self.classobjdict = self.dbobj.membase["classes"]
         if classname in self.classobjdict:
-            return {"resource": self.classobjdict[classname], "status": 200, "successful": True}
+            return {"resource": self.classobjdict[classname], "status": 200, "success": True}
         else:
             self.logger("class not found")
-            return {"resource": "Class not found", "status": 404, "successful": False} 
+            return {"resource": "Class not found", "status": 404, "success": False} 
 
 
     def execute(self, classname, funcname, args={}, threaded=False):
@@ -34,7 +34,7 @@ class Watcher:
         database = self.getclass("Database")
         if type(classname) == str:
             classobj = self.getclass(classname)
-            if not classobj["successful"]:
+            if not classobj["success"]:
                 self.logger("Class not found.")
                 return "Class not found"
             classobj = classobj["resource"]

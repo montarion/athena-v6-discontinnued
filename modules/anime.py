@@ -48,9 +48,9 @@ class Anime:
                     self.maindict[show]["art"]["cover"] = imagelink
                     self.maindict[show]["art"]["banner"] = bannerlink
                     self.maindict[show]["meta"]["maxepisodes"] = maxepisodes
-                sessiondict["art"] = {}
-                sessiondict["art"]["cover"] = self.maindict[show]["art"]["cover"]
-                sessiondict["art"]["banner"] = self.maindict[show]["art"]["banner"]
+                sessiondict["art"] = {"vertical":{}, "horizontal":{}}
+                sessiondict["art"]["vertical"]["cover"] = self.maindict[show]["art"]["cover"]
+                sessiondict["art"]["horizontal"]["banner"] = self.maindict[show]["art"]["banner"]
 
                 self.maindict[show]["lastep"] = episode
                 animedict = self.dbobj.gettable("anime")["resource"]

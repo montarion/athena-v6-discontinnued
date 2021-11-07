@@ -5,3 +5,4 @@ filelock
 fuzzywuzzy
 APscheduler
 pypubsub
+webauthn

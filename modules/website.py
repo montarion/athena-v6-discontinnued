@@ -1,6 +1,7 @@
 from flask import Flask, render_template, safe_join, send_from_directory, request, redirect, url_for
 from flask_login import LoginManager, UserMixin, login_required, current_user, login_user, logout_user, fresh_login_required
-from flask_sockets import Sockets
+from flask_assets import Environment, Bundle
+from flask_compress import Compress
 from time import sleep
 from gevent import pywsgi
 from geventwebsocket.handler import WebSocketHandler
@@ -56,8 +57,12 @@ class Website:
         qdata = query.get("data", None)
         qmetadata = query.get("metadata", None)
         response = {}
-        if query["category"] == "admin":
-            if qtype == "signin":
+        if category == "admin":
+            if qtype == "signup":
+                self.logger(qdata)
+                resdata = {"success":True, "code":200}
+                response = {"category": "admin", "type": "signup", "data": resdata}
+            if qtype == "login":
                 pass
             if qtype == "enabled_mods":
                 #TODO: Get list of enabled modules that the website can display
@@ -122,14 +127,19 @@ class Website:
         self.app = Flask(__name__, static_folder=staticfolder, template_folder=tmpfolder)
         self.app.secret_key = "haaaaaaaaaaaaai"
         self.app.config['TRAP_BAD_REQUEST_ERRORS'] = True
-        self.socket = Sockets(self.app)
+        self.assets = Environment(self.app)
+        js = Bundle(
+            "scripts/networking.js", "scripts/ui.js", 
+            "scripts/images.js", "scripts/images.js", 
+            "scripts/text.js", "scripts/main.js",
+            output="scripts/packed.js"
+        )
+        self.assets.register("js_all", js)
         self.login_manager = LoginManager()
         self.login_manager.init_app(self.app)
         self.login_manager.login_view = "login"
-
-        ssl_enabled = False
-
-        self.logger("website is running")
+        Compress(self.app)
+        ssl_enabled = True
 
         @self.app.route("/")
         @fresh_login_required
@@ -152,7 +162,15 @@ class Website:
 
 
             return 'Bad login'
-    
+
+        @self.app.route('/webauthn', methods=['GET'])
+        def webauth():
+            return render_template("webauthn.html")
+
+        @self.app.route('/bluetooth', methods=['GET'])
+        def btserial():
+            return render_template("bluetooth.html")
+
         @self.app.before_request
         def before_request():
             if not request.is_secure and ssl_enabled:
@@ -195,4 +213,5 @@ class Website:
             server = pywsgi.WSGIServer(('0.0.0.0', 8080), self.app, handler_class=WebSocketHandler)
             self.logger("Not using ssl. Connection is insecure")
 
+        self.logger("Website is running.")
         server.serve_forever()

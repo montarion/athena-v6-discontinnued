@@ -55,6 +55,7 @@ class Monitor:
         res["memory"] = self.checkmemory()
         #res["network"] = self.checknetwork()
         res["misc"] = self.getmisc()
+        res["backgroundUrl"] = ""
         self.db.write("info", res, "monitor")
 
     def query(self, query, connectionID = 666):

@@ -36,7 +36,9 @@ class Spotify:
         return response
 
     def getplaying(self):
+        self.logger("getting token")
         ac = self.oauth.getaccesstoken()
+        self.logger("Done")
         baseurl = "https://api.spotify.com/v1/me/player/currently-playing"
         headers = {
             'Accept': 'application/json',
@@ -46,12 +48,15 @@ class Spotify:
 
         params = {'market': 'from_token'}
 
+        self.logger("firing request")
         response = requests.get(baseurl, headers=headers, params=params)
+        self.logger("Done")
         data = {}
         if len(response.content) > 1:
             playdata = response.json()
             item = playdata["item"]
             name = item["name"]
+            self.logger(f"Currently playing: {name}")
             duration = item["duration_ms"]
             progress = playdata["progress_ms"]
             artists = [x["name"] for x in playdata["item"]["artists"]]
@@ -60,7 +65,7 @@ class Spotify:
             if name != self.currentsong:
                 self.currentsong = name
                 data = {"playing":playing, "song": name, "artist": artists, "Progress":progress, "duration":duration}
-                self.logger(data)
+                #self.logger(data)
             
             msg = self.db.messagebuilder("Spotify", "update", data)
             self.watcher.publish(self, msg)
@@ -69,13 +74,13 @@ class Spotify:
             data = {"playing":False}
             msg = self.db.messagebuilder("Spotify", "update", data)
             self.watcher.publish(self, msg)
-
+            self.logger("published")
         
     def startrun(self):
         """Various methods to control spotify playback"""
         # init stuff..
         self.logger = Logger("Spotify").logger
+        self.logger("Startrun")
         self.datapath = f"data/modules/{self.__class__.__name__.lower()}"
         #self.dostuff()
         self.getplaying()
-        data = {"foo":"bar"}
