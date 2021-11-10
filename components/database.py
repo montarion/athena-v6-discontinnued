@@ -1,44 +1,44 @@
 # moving to sqlite
 from ast import literal_eval as eval
 from components.logger import Logger
-import json, traceback, inspect, shortuuid, random
-from filelock import FileLock
+import json, traceback, inspect, shortuuid, random, os
+import sqlite3
+from sqlitedict import SqliteDict
 from time import sleep
 class Database:
-    membase = {}
     def __init__(self, Networking=None):
         self.logger = Logger("DATABASE").logger
-        self.db = ('data/db.json')
+        datadir = "/home/pi/code/athena/data"
+        self.db = os.path.join(datadir, "main.db")
         self.table = "main"
         self.nw = Networking
-        self.membase = Database.membase
         self.userresponse = {}
-        self.dblock = FileLock(self.db+".lock")
 
-    def getdbfile(self, editableonly = False, rohidden = True):
-        with self.dblock:
-            with open(self.db) as f:
-                tables = json.loads(f.read())
-        
-        tabledict = {}
-        for table in tables:
-            rolist = tables[table].get("readonly", [])
-            tabledict[table] = {}
-            for key in tables[table]:
-                if rohidden:
-                    if key == "readonly":
-                        continue
-                if editableonly:
-                    if key in rolist:
-                        continue
-                value = tables[table][key]
-                tabledict[table][key] = value
-            if len(tabledict[table]) == 0:
-                del tabledict[table]
-        
-        return tabledict
+    def connect(self):
+        #self.conn = sqlite3.connect(self.db)
+        #self.cursor = self.conn.cursor()
 
-    def write(self, key, value, table=None, readonly = False, update =True):
+
+    def close(self):
+        #self.cursor.close()
+        #self.conn.close()
+
+    def gettables(self):
+        #self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        #print(self.cursor.fetchall())
+
+    def getcolumns(self, table):
+        #self.cursor.execute(f"SELECT * FROM {table}")
+        #names = [description[0] for description in self.cursor.description]
+        #return names
+
+    def addtable(self, table, columns = ("key")):
+        #query = f"CREATE TABLE IF NOT EXISTS {table} ({columns})"
+        #print(query)
+        #self.cursor.execute(query)
+        #self.conn.commit()
+
+    def write(self, key, value, table, readonly = False, update =True):
         """Usage: Database().write("foo", {"foo":"bar"}, "test")"""
         #self.logger("Writing..")
         # fix datatypes
@@ -47,52 +47,18 @@ class Database:
             key = str(key)
         value = json.loads(json.dumps(value))
 
-        if table:
-            self.table = table
+        with SqliteDict(self.db) as dbdict:
+            if table not in dbdict.keys():
+                dbdict[table] = {}
+                dbdict.commit()
 
-        #t = self.gettable(table)
-        fulldata = self.getdbfile(rohidden=False)
-        tables = fulldata.keys()
+            tdict = dbdict[table]
+            tdict[key] = value
+            dbdict.commit()
 
-        if table not in tables:
-            fulldata[table] = {}
+        self.logger("Written")
 
-
-        # save readonly data if it exists
-        rodata = []
-        if "readonly" in fulldata[table]:
-            rodata = fulldata[table]["readonly"]
-
-        data = json.loads(json.dumps(fulldata[table]))
-
-        data["readonly"] = rodata
-        #self.logger(f"old data: {fulldata[table]}", "debug", "blue")
-
-        if key not in data: # can't update something that doesn't exist, so check first
-            update = False
-
-        if update: # in case you want to update lists
-            if type(data[key]) == list:
-                data[key].append(value)
-            elif type(value) == dict:
-                for k,v in value.items():
-                    data[key][k] = v
-        else:
-            data[key] = value # add actual data
-        if readonly:
-            if "readonly" not in data:
-                data["readonly"] = []
-            data["readonly"].append(key)
-        # save in proper form
-        fulldata[table] = data
-        #self.logger(f"new data: {data}", "debug", "blue")
-
-            # write fulldata to dict
-        with open(self.db, "w") as f:
-            json.dump(fulldata, f, indent=4)
-
-
-    def query(self, query, table=None):
+    def query(self, query, table):
         """Usage: 
             Database().query("city", "personalia") or:
             Database().query(["lastshow", "title"], "anime")
@@ -101,28 +67,12 @@ class Database:
         #callerclass, callerfunc = self.caller_name() 
         #self.logger(f"Query requested by: {callerclass, callerfunc}", "debug", "yellow")
         
-        if table:
-            self.table = table
-        fulldata = self.getdbfile()
-
         try:
-            data = fulldata[table]
-            if type(query) == str:
-                query = [query]
-            if type(query) == list: #e.g. ..query(["lastshow", "title"])
-                for q in query:
-                    data = data[q]
-                result = data
-            else:
-                raise KeyError
-            if type(result) == str:
-                try:
-                    result = eval(result)
-                except:
-                        pass
-            #self.logger(f"result: {result} - {type(result)}", "debug", "red")
-
-            msg = {"status": "200", "resource":result, "success": True}
+            res = ""
+            with SqliteDict(self.db) as dbdict:
+                res = dbdict[table][query]
+            print(res)
+            msg = {"status": "200", "resource":res, "success": True}
             return msg
         except KeyError as e:
             """
@@ -155,36 +105,8 @@ class Database:
     def remove(self, query, table=None):
         """NOT IMPLEMENTED"""
         #TODO: IMPLEMENT
-        if table:
-            self.table = self.db.table(table)
 
-        fulldata = self.getdbfile()
-        """
-        fulldata = ""
-        while len(fulldata) == 0:
-            with open(self.db) as f:
-                # get data
-                fulldata = json.loads(f.read())
-        """
-
-        tables = fulldata.keys()
-        if table not in tables:
-            fulldata[table] = {}
-
-        data = fulldata[table]
-
-        # remove data
-        del data[key]
-
-        # save in proper form
-        fulldata[table] = data
-
-        # write fulldata to dict
-        with open(self.db, "w") as f:
-            json.dump(fulldata, f, indent=4)
-
-
-    def gettable(self, table):
+    def gettable2(self, table):
         """Usage: Database().gettable("table")"""
 
         fulldata = self.getdbfile()
@@ -219,14 +141,9 @@ class Database:
         #self.logger(res, "debug", "yellow")
         return res
 
-    def gettables(self):
+    def gettables2(self):
         fulldata = self.getdbfile()
         tables = list(fulldata.keys())
-        res = {"status": 200, "resource": tables, "success": True}
-        return res
-
-    def geteditable(self):
-        tables = self.getdbfile(True)
         res = {"status": 200, "resource": tables, "success": True}
         return res
 
