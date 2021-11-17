@@ -21,8 +21,9 @@ class Tasks:
     def createtask(self, functarget, count, unit, tag="user task"):
         #task = getattr(schedule.every(count), unit).do(functarget).tag(tag)
         kwargs = {unit: count}
-        #self.logger(f"scheduled task {functarget} to run every {count} {unit}", "debug")
+        self.logger(f"scheduled task {functarget} to run every {count} {unit}", "debug")
         task = self.schedule.add_job(functarget, trigger(**kwargs), jitter=10, misfire_grace_time=None)
+        self.logger(task, "debug")
         return task
 
     def createthreadedtask(self, functarget, argdict={}):
@@ -30,6 +31,10 @@ class Tasks:
         #task = self.schedule.add_job(task.start)
         self.threadlist.append(task)
         return task
+
+    def removetask(self, task):
+        self.logger(f"Removing task: {task}", "debug")
+        task.remove()
 
     def pause(self, target):
         # check if target in membase. if so, stop execution
@@ -46,8 +51,6 @@ class Tasks:
             job.pause()
             self.logger(f"Resumed: {target}")
 
-    def removetask(self, tag):
-        self.schedule.clear(tag)
 
     def run(self):
         self.logger("running everything")
