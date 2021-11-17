@@ -13,30 +13,18 @@ class Database:
         self.table = "main"
         self.nw = Networking
         self.userresponse = {}
-
-    def connect(self):
-        #self.conn = sqlite3.connect(self.db)
-        #self.cursor = self.conn.cursor()
-
-
-    def close(self):
-        #self.cursor.close()
-        #self.conn.close()
-
-    def gettables(self):
-        #self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        #print(self.cursor.fetchall())
-
-    def getcolumns(self, table):
-        #self.cursor.execute(f"SELECT * FROM {table}")
-        #names = [description[0] for description in self.cursor.description]
-        #return names
-
-    def addtable(self, table, columns = ("key")):
-        #query = f"CREATE TABLE IF NOT EXISTS {table} ({columns})"
-        #print(query)
-        #self.cursor.execute(query)
-        #self.conn.commit()
+        with SqliteDict(":memory:", autocommit=True, encode=json.dumps, decode=json.loads) as dbdict:
+            self.membase = {}
+    def gettable(self, table):
+        res = ""
+        try:
+            with SqliteDict(self.db, encode=json.dumps, decode=json.loads) as dbdict:
+                res = dbdict[table]
+            msg = {"status": "200", "resource":res, "success": True}
+            return msg
+        except:
+            res = {"status": 404, "resource": f"table: \"{table}\" not found", "success": False}
+            return msg
 
     def write(self, key, value, table, readonly = False, update =True):
         """Usage: Database().write("foo", {"foo":"bar"}, "test")"""
@@ -47,16 +35,28 @@ class Database:
             key = str(key)
         value = json.loads(json.dumps(value))
 
-        with SqliteDict(self.db) as dbdict:
+        with SqliteDict(self.db, encode=json.dumps, decode=json.loads) as dbdict:
             if table not in dbdict.keys():
                 dbdict[table] = {}
+                self.logger(f"created table: {table}", "debug")
                 dbdict.commit()
 
             tdict = dbdict[table]
-            tdict[key] = value
-            dbdict.commit()
+            
 
-        self.logger("Written")
+            if key not in tdict: # can't update something that doesn't exist, so check first
+                update = False
+            if update:
+                if type(tdict[key]) == list:
+                    tdict[key].append(value)
+                elif type(value) == dict:
+                    for k,v in value.items():
+                        tdict[key][k] = v
+            else:
+                tdict[key] = value # add actual data
+
+            dbdict[table] = tdict # save back into dbdict
+            dbdict.commit() # then commit
 
     def query(self, query, table):
         """Usage: 
@@ -69,9 +69,14 @@ class Database:
         
         try:
             res = ""
-            with SqliteDict(self.db) as dbdict:
-                res = dbdict[table][query]
-            print(res)
+            with SqliteDict(self.db, encode=json.dumps, decode=json.loads) as dbdict:
+                data = dbdict[table]
+                if type(query) == str:
+                    query = [query]
+                if type(query) == list: #e.g. ..query(["lastshow", "title"])
+                    for q in query:
+                        data = data[q]
+                    res = data
             msg = {"status": "200", "resource":res, "success": True}
             return msg
         except KeyError as e:
