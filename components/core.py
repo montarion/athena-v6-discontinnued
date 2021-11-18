@@ -38,15 +38,13 @@ class Core:
             simplefname = event.src_path.split("/")[-1]
             classname = simplefname.split(".")[0].capitalize()
             self.logger(f"Reloading {simplefname.capitalize()}")
-            self.logger(f" old classobj: {self.moduledict[classname]['classobj']}", "debug")
-            self.importfile(simplefname)
+            self.importfile(simplefname, True)
 
             # get old task data
             oldtaskobj = self.taskdict[classname]["taskobj"]
             # reload task data
             self.starttask(classname, modify = True) # will also take care of closing the old job
 
-            self.logger(f" new classobj: {self.moduledict[classname]['classobj']}", "debug")
             # update classdict
             self.db.membase["classes"] = self.classobjdict
             self.logger(f"Reloading {classname} is finished")
@@ -67,18 +65,20 @@ class Core:
             observer.stop()
             observer.join()
 
-    def importfile(self, file):
+    def importfile(self, file, reload = False):
         self.logger(f"Discover: importing {file}", "debug", "blue")
-        mod = importlib.import_module(f"modules.{file.split('.')[0]}")
-
-        # read task data from them
         name = file.split(".")[0].capitalize()
+        if not reload:
+            mod = importlib.import_module(f"modules.{file.split('.')[0]}")
+        else:
+            oldmod = self.moduledict[name]["module"]
+            mod = importlib.reload(oldmod)
+        # read task data from them
 
         # lets you access whatever is inside the class
         classobj = getattr(mod, name)
         # list
         attrlist = dir(classobj())
-        print(f"TEST: {classobj()['TEST']}")
 
         # actually access it.
         #dependencies = getattr(classobj, "dependencies")
@@ -95,20 +95,18 @@ class Core:
                 attrdict[val] = tmp
 
         #print(attrdict)
-        self.moduledict[name] = {"attr":attrdict, "classobj":classobj}
+        self.moduledict[name] = {"attr":attrdict, "classobj":classobj, "module":mod}
         if self.insertdependencies(name):
-            self.logger(f"Discover: Imported {name} as {self.moduledict[name]}", "debug")
             return True
 
     def insertdependencies(self, item):
-        self.logger(f"inserting dependencies for {item}", "debug", "blue")
         self.classobjdict[item] = self.moduledict[item]["classobj"]
         tier = self.moduledict[item]["attr"]["dependencies"]["tier"]
         # TODO: use tier to seperate dependency loading into tiers, to mitigate intermodule dependency errors
         #self.logger(self.moduledict[item])
         dependencies = self.moduledict[item]["attr"]["dependencies"]["dependencies"]
         characteristics = self.moduledict[item]["attr"]["characteristics"]
-        self.logger(f"DEPENDENCIES: {dependencies}")
+        self.logger(f"DEPENDENCIES: {dependencies}", "debug")
         failedlist = [x for x in dependencies if x not in self.coremodules and x not in list(self.moduledict.keys())]
         if len(failedlist) > 0: # TODO: if failelist includes agents, pass through anyway
             self.logger(f"couldn't meet dependencies for {item}", "info", "red")
@@ -285,7 +283,6 @@ class Core:
 
         # update ui interfaces
         uiinterfaces = self.findmodulesperui(self.uiinterfaces)
-        self.logger(f"Supported ui interfaces: {self.uiinterfaces}", "debug")
         self.db.membase["ui-interfaces"] = {}
         self.db.membase["ui-interfaces"]["support"] = self.uiinterfaces
 

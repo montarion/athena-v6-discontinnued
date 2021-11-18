@@ -18,12 +18,12 @@ class Tasks:
         self.threadlist = []
         self.uilist = []
 
-    def createtask(self, functarget, count, unit, tag="user task"):
+    def createtask(self, functarget, count, unit, tag="[module]"):
         #task = getattr(schedule.every(count), unit).do(functarget).tag(tag)
         kwargs = {unit: count}
-        self.logger(f"scheduled task {functarget} to run every {count} {unit}", "debug")
+        self.logger(f"scheduled module {tag} to run every {count} {unit}", "debug")
         task = self.schedule.add_job(functarget, trigger(**kwargs), jitter=10, misfire_grace_time=None)
-        self.logger(task, "debug")
+        #self.logger(task, "debug")
         return task
 
     def createthreadedtask(self, functarget, argdict={}):
